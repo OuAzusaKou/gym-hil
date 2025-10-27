@@ -119,6 +119,32 @@
       "right_y": true
     }
   },
+  "Logitech Gamepad F710": {
+    "axes": {
+      "left_x": 0,
+      "left_y": 1,
+      "right_x": 3,
+      "right_y": 4
+    },
+    "buttons": {
+      "a": 0,
+      "b": 1,
+      "x": 2,
+      "y": 3,
+      "lb": 4,
+      "rb": 5,
+      "lt": 6,
+      "rt": 7
+    },
+    "axis_inversion": {
+      "left_x": false,
+      "left_y": true,
+      "right_x": true,
+      "right_y": true,
+      "dpad_x": false,
+      "dpad_y": false
+    }
+  },
   "Logitech Cordless RumblePad 2": {
     "axes": {
       "left_x": 0,

@@ -63,6 +63,8 @@ class InputController:
         self.intervention_flag = False
         self.open_gripper_command = False
         self.close_gripper_command = False
+        self.enable_rotation = False  # Whether rotation control is enabled
+        self.rotation_step_size = 0.5  # Step size for rotation in radians
 
     def start(self):
         """Start the controller and initialize resources."""
@@ -77,8 +79,13 @@ class InputController:
         pass
 
     def get_deltas(self):
-        """Get the current movement deltas (dx, dy, dz) in meters."""
-        return 0.0, 0.0, 0.0
+        """Get the current movement deltas.
+        
+        Returns:
+            Tuple of (dx, dy, dz, drx, dry, drz) in meters and radians.
+            If rotation is disabled, rotation deltas are zeros.
+        """
+        return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 
     def update(self):
         """Update controller state - call this once per frame."""
@@ -269,18 +276,38 @@ class GamepadController(InputController):
         self.joystick = pygame.joystick.Joystick(0)
         self.joystick.init()
         joystick_name = self.joystick.get_name()
-        print(f"Initialized gamepad: {joystick_name}")
-
+        num_axes = self.joystick.get_numaxes()
+        num_hats = self.joystick.get_numhats()
+        print(f"Initialized gamepad: {joystick_name} (Axes: {num_axes}, Hats: {num_hats})")
+        
         # Load controller configuration based on joystick name
         self.controller_config = load_controller_config(joystick_name, self.config_path)
+        
+        # Enable rotation control if:
+        # 1. Has at least 4 axes (left stick + right stick minimum)
+        # 2. Has at least 1 hat (for dpad)
+        self.enable_rotation = num_axes >= 4 and num_hats >= 1
 
         # Get button mappings from config
         buttons = self.controller_config.get("buttons", {})
+        
+        if self.enable_rotation:
+            print("✅ Rotation control ENABLED")
+        else:
+            print("⚠️  Rotation control DISABLED (requires at least 4 axes and 1 hat)")
 
         print("Gamepad controls:")
         print(f"  {buttons.get('rb', 'RB')} button: Intervention")
         print("  Left analog stick: Move in X-Y plane")
-        print("  Right analog stick (vertical): Move in Z axis")
+        if self.enable_rotation:
+            print("  Right analog stick: Control Z axis and Yaw rotation")
+            print("  - Vertical: Z axis movement")
+            print("  - Horizontal: Yaw rotation (rz)")
+            print("  D-Pad:")
+            print("  - Left/Right: Pitch rotation (ry)")
+            print("  - Up/Down: Roll rotation (rx)")
+        else:
+            print("  Right analog stick (vertical): Move in Z axis")
         print(f"  {buttons.get('lt', 'LT')} button: Close gripper")
         print(f"  {buttons.get('rt', 'RT')} button: Open gripper")
         print(f"  {buttons.get('b', 'B')}/Circle button: Exit")
@@ -351,18 +378,24 @@ class GamepadController(InputController):
             # Get axis indices from config (with defaults if not found)
             left_x_axis = axes.get("left_x", 0)
             left_y_axis = axes.get("left_y", 1)
-            right_y_axis = axes.get("right_y", 3)
+            right_x_axis = axes.get("right_x", 3)  # For yaw rotation
+            right_y_axis = axes.get("right_y", 4)  # For Z movement
 
             # Get axis inversion settings (with defaults if not found)
             invert_left_x = axis_inversion.get("left_x", False)
             invert_left_y = axis_inversion.get("left_y", True)
+            invert_right_x = axis_inversion.get("right_x", True)  # For yaw
             invert_right_y = axis_inversion.get("right_y", True)
+            
+            # D-pad inversion settings (for get_hat values)
+            invert_dpad_x = axis_inversion.get("dpad_x", False)
+            invert_dpad_y = axis_inversion.get("dpad_y", False)
 
-            # Read joystick axes
-            x_input = self.joystick.get_axis(left_x_axis)  # Left/Right
-            y_input = self.joystick.get_axis(left_y_axis)  # Up/Down
-            z_input = self.joystick.get_axis(right_y_axis)  # Up/Down for Z
-
+            # Read joystick axes for translation
+            x_input = self.joystick.get_axis(left_x_axis)  # Left/Right -> Y axis
+            y_input = self.joystick.get_axis(left_y_axis)  # Up/Down -> X axis
+            z_input = self.joystick.get_axis(right_y_axis)  # Z axis
+            
             # Apply deadzone to avoid drift
             x_input = 0 if abs(x_input) < self.deadzone else x_input
             y_input = 0 if abs(y_input) < self.deadzone else y_input
@@ -376,16 +409,50 @@ class GamepadController(InputController):
             if invert_right_y:
                 z_input = -z_input
 
-            # Calculate deltas
+            # Calculate translation deltas
             delta_x = y_input * self.y_step_size  # Forward/backward
             delta_y = x_input * self.x_step_size  # Left/right
             delta_z = z_input * self.z_step_size  # Up/down
-
-            return delta_x, delta_y, delta_z
+            
+            # Calculate rotation deltas if enabled
+            if self.enable_rotation:
+                # Read rotation axes - right stick X controls Yaw (rz)
+                yaw_input = self.joystick.get_axis(right_x_axis)
+                
+                # Read dpad for pitch and roll (dpad uses get_hat, not get_axis)
+                # hat[0] is x-axis (-1, 0, 1), hat[1] is y-axis (-1, 0, 1)
+                dpad_x, dpad_y = self.joystick.get_hat(0)  # Get the hat value for hat 0 (the dpad)
+                
+                # Convert dpad to input (already in range -1, 0, 1)
+                roll_input = float(dpad_y)  # dpad_y -> roll (rx) - up/down on dpad
+                pitch_input = float(dpad_x)  # dpad_x -> pitch (ry) - left/right on dpad
+                
+                # Apply deadzone for analog stick (dpad doesn't need deadzone as it's digital)
+                yaw_input = 0 if abs(yaw_input) < self.deadzone else yaw_input
+                
+                # Apply inversion
+                if invert_right_x:
+                    yaw_input = -yaw_input
+                if invert_dpad_x:
+                    pitch_input = -pitch_input
+                if invert_dpad_y:
+                    roll_input = -roll_input
+                
+                # Calculate rotation deltas
+                delta_rx = roll_input  # Roll
+                delta_ry = pitch_input  # Pitch
+                delta_rz = yaw_input  # Yaw rotation
+                
+                return delta_x, delta_y, delta_z, delta_rx, delta_ry, delta_rz
+            else:
+                return delta_x, delta_y, delta_z, 0.0, 0.0, 0.0
 
         except pygame.error:
             print("Error reading gamepad. Is it still connected?")
-            return 0.0, 0.0, 0.0
+            if self.enable_rotation:
+                return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+            else:
+                return 0.0, 0.0, 0.0
 
 
 class GamepadControllerHID(InputController):

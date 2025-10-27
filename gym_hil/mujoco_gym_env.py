@@ -237,6 +237,47 @@ class FrankaGymEnv(MujocoGymEnv):
         npos = np.clip(pos + dpos, *self._cartesian_bounds)
         self._data.mocap_pos[0] = npos
 
+        # Update mocap orientation based on rotation inputs
+        # rx, ry, rz are incremental rotation commands in radians
+        if np.any(np.abs([rx, ry, rz]) > 1e-6):  # Only update if there's meaningful rotation
+            # Get current orientation quaternion
+            current_quat = self._data.mocap_quat[0].copy()  # [w, x, y, z]
+            
+            # Convert incremental Euler angles to quaternion
+            # Using small angle approximation for incremental rotations
+            half_angles = np.array([rx, ry, rz]) / 2.0
+            cx, cy, cz = np.cos(half_angles)
+            sx, sy, sz = np.sin(half_angles)
+            
+            # Incremental quaternion (in XYZ order: roll-pitch-yaw)
+            # q_inc = q_roll * q_pitch * q_yaw
+            # For small angles, we can use the approximation
+            q_inc_x = np.array([cx, sx, 0, 0])  # roll around x
+            q_inc_y = np.array([cy, 0, sy, 0])  # pitch around y
+            q_inc_z = np.array([cz, 0, 0, sz])  # yaw around z
+            
+            # Multiply quaternions (q_new = q_inc * q_current)
+            # Note: quaternion multiplication
+            def quat_mult(q1, q2):
+                w1, x1, y1, z1 = q1
+                w2, x2, y2, z2 = q2
+                return np.array([
+                    w1*w2 - x1*x2 - y1*y2 - z1*z2,
+                    w1*x2 + x1*w2 + y1*z2 - z1*y2,
+                    w1*y2 - x1*z2 + y1*w2 + z1*x2,
+                    w1*z2 + x1*y2 - y1*x2 + z1*w2
+                ])
+            
+            # Combine incremental rotations
+            q_inc = quat_mult(quat_mult(q_inc_z, q_inc_y), q_inc_x)
+            # Apply to current orientation
+            new_quat = quat_mult(q_inc, current_quat)
+            
+            # Normalize quaternion
+            new_quat = new_quat / np.linalg.norm(new_quat)
+            
+            self._data.mocap_quat[0] = new_quat
+
         # Set gripper grasp
         g = self._data.ctrl[self._gripper_ctrl_id] / MAX_GRIPPER_COMMAND
         ng = np.clip(g + grasp_command, 0.0, 1.0)

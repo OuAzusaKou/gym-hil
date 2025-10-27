@@ -16,6 +16,11 @@
 
 from gym_hil.envs.panda_arrange_boxes_gym_env import PandaArrangeBoxesGymEnv
 from gym_hil.envs.panda_pick_gym_env import PandaPickCubeGymEnv
-from gym_hil.envs.real_cr5_env import RealCR5PickCubeGymEnv
 
-__all__ = ["PandaPickCubeGymEnv", "PandaArrangeBoxesGymEnv", "RealCR5PickCubeGymEnv"]
+# Try to import RealCR5PickCubeGymEnv, but make it optional
+try:
+    from gym_hil.envs.real_cr5_env import RealCR5PickCubeGymEnv
+    __all__ = ["PandaPickCubeGymEnv", "PandaArrangeBoxesGymEnv", "RealCR5PickCubeGymEnv"]
+except ImportError:
+    # If Orbbec SDK is not available, RealCR5PickCubeGymEnv won't be available
+    __all__ = ["PandaPickCubeGymEnv", "PandaArrangeBoxesGymEnv"]

@@ -14,12 +14,37 @@
 #  limitations under the License.
 # ******************************************************************************
 from typing import Union, Any, Optional
+import logging
 
 import cv2
 import numpy as np
 
-from pyorbbecsdk import FormatConvertFilter, VideoFrame
-from pyorbbecsdk import OBFormat, OBConvertFormat
+try:
+    from pyorbbecsdk import FormatConvertFilter, VideoFrame
+    from pyorbbecsdk import OBFormat, OBConvertFormat
+    ORBBEC_AVAILABLE = True
+except ImportError:
+    ORBBEC_AVAILABLE = False
+    logging.warning("pyorbbecsdk not available. Orbbec camera functionality will be disabled.")
+    # Create dummy classes for type hints
+    class VideoFrame:
+        pass
+    class OBFormat:
+        RGB = None
+        BGR = None
+        YUYV = None
+        MJPG = None
+        I420 = None
+        NV12 = None
+        NV21 = None
+        UYVY = None
+    class OBConvertFormat:
+        I420_TO_RGB888 = None
+        MJPG_TO_RGB888 = None
+        YUYV_TO_RGB888 = None
+        NV21_TO_RGB888 = None
+        NV12_TO_RGB888 = None
+        UYVY_TO_RGB888 = None
 
 
 def yuyv_to_bgr(frame: np.ndarray, width: int, height: int) -> np.ndarray:

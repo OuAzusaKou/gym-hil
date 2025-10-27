@@ -7,8 +7,25 @@ import time
 import logging
 import os
 
-from gym_hil.envs.camera_orbbec_net import OrbbecCamera as Camera_ex
-from gym_hil.envs.camera_orbbec_usb import Camera as Camera_wrist
+try:
+    from gym_hil.envs.camera_orbbec_net import OrbbecCamera as Camera_ex
+    from gym_hil.envs.camera_orbbec_usb import Camera as Camera_wrist
+    CAMERA_AVAILABLE = True
+except ImportError as e:
+    CAMERA_AVAILABLE = False
+    logging.warning(f"Orbbec camera modules not available: {e}. Camera functionality will be disabled.")
+    # Create dummy camera classes
+    class Camera_ex:
+        def __init__(self, *args, **kwargs):
+            raise ImportError("pyorbbecsdk not available. Please install pyorbbecsdk to use cameras.")
+        def get_frame(self):
+            return np.zeros((480, 640, 3), dtype=np.uint8), np.zeros((480, 640), dtype=np.uint16)
+    
+    class Camera_wrist:
+        def __init__(self, *args, **kwargs):
+            raise ImportError("pyorbbecsdk not available. Please install pyorbbecsdk to use cameras.")
+        def get_frame(self):
+            return np.zeros((480, 640, 3), dtype=np.uint8), np.zeros((480, 640), dtype=np.uint16)
 
 # 尝试导入 ROS2 Robot 相关模块
 try:
@@ -464,8 +481,17 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
         
         self.robot_config = ros2_config
         self.robot = None  # 将在 super().__init__ 后初始化
-        self.wrist_camera = Camera_wrist()
-        self.ex_camera = Camera_ex()
+        self.wrist_camera = None
+        self.ex_camera = None
+        
+        # 仅在需要时初始化摄像头
+        if self.image_obs and CAMERA_AVAILABLE:
+            try:
+                self.wrist_camera = Camera_wrist()
+                self.ex_camera = Camera_ex()
+            except Exception as e:
+                logging.warning(f"Failed to initialize cameras: {e}. Camera functionality will be disabled.")
+        
         # 调用父类初始化
         super().__init__(
             seed=seed,
@@ -653,24 +679,34 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
         """获取相机图像并调整到指定尺寸"""
         import cv2
         
-        # 获取原始相机帧
-        front_view, _ = self.ex_camera.get_frame()
-        wrist_view, _ = self.wrist_camera.get_frame()
+        # 如果摄像头不可用，返回占位符图像
+        if self.ex_camera is None or self.wrist_camera is None:
+            return (np.zeros((self.image_height, self.image_width, 3), dtype=np.uint8),
+                    np.zeros((self.image_height, self.image_width, 3), dtype=np.uint8))
         
-        # 将图像调整到128x128尺寸
-        if front_view is not None and front_view.shape[:2] != (self.image_height, self.image_width):
-            front_view = cv2.resize(front_view, (self.image_width, self.image_height))
-        
-        if wrist_view is not None and wrist_view.shape[:2] != (self.image_height, self.image_width):
-            wrist_view = cv2.resize(wrist_view, (self.image_width, self.image_height))
-        
-        # 如果相机返回None，创建占位符图像
-        if front_view is None:
-            front_view = np.zeros((self.image_height, self.image_width, 3), dtype=np.uint8)
-        if wrist_view is None:
-            wrist_view = np.zeros((self.image_height, self.image_width, 3), dtype=np.uint8)
-        
-        return front_view, wrist_view
+        try:
+            # 获取原始相机帧
+            front_view, _ = self.ex_camera.get_frame()
+            wrist_view, _ = self.wrist_camera.get_frame()
+            
+            # 将图像调整到128x128尺寸
+            if front_view is not None and front_view.shape[:2] != (self.image_height, self.image_width):
+                front_view = cv2.resize(front_view, (self.image_width, self.image_height))
+            
+            if wrist_view is not None and wrist_view.shape[:2] != (self.image_height, self.image_width):
+                wrist_view = cv2.resize(wrist_view, (self.image_width, self.image_height))
+            
+            # 如果相机返回None，创建占位符图像
+            if front_view is None:
+                front_view = np.zeros((self.image_height, self.image_width, 3), dtype=np.uint8)
+            if wrist_view is None:
+                wrist_view = np.zeros((self.image_height, self.image_width, 3), dtype=np.uint8)
+            
+            return front_view, wrist_view
+        except Exception as e:
+            logging.error(f"Failed to get camera images: {e}")
+            return (np.zeros((self.image_height, self.image_width, 3), dtype=np.uint8),
+                    np.zeros((self.image_height, self.image_width, 3), dtype=np.uint8))
 
     def _get_block_position(self) -> np.ndarray:
         """获取方块位置 - 暂时返回固定位置"""

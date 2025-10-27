@@ -1,8 +1,19 @@
 import numpy as np
 import cv2
 import time
-from pyorbbecsdk import *
-from gym_hil.envs.utils_orbbec import frame_to_rgb_image  
+import logging
+
+try:
+    from pyorbbecsdk import *
+    from gym_hil.envs.utils_orbbec import frame_to_rgb_image
+    ORBBEC_AVAILABLE = True
+except ImportError:
+    ORBBEC_AVAILABLE = False
+    logging.warning("pyorbbecsdk not available. OrbbecCamera will not be functional.")
+    # Create dummy classes for type hints
+    def frame_to_rgb_image(frame):
+        return np.zeros((480, 640, 3), dtype=np.uint8)
+
 import open3d as o3d
 
 ESC_KEY = 27
@@ -22,6 +33,8 @@ class TemporalFilter:
 
 class OrbbecCamera:
     def __init__(self, ip="192.168.5.124", port=8090):
+        if not ORBBEC_AVAILABLE:
+            raise ImportError("pyorbbecsdk not available. Please install pyorbbecsdk to use OrbbecCamera.")
         self.ctx = Context()
         self.device = self.ctx.create_net_device(ip, port)
         if not self.device:

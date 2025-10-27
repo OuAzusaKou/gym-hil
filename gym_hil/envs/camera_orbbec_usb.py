@@ -3,8 +3,21 @@ import numpy as np
 import time
 from queue import Queue
 import threading
-from pyorbbecsdk import *
-from gym_hil.envs.utils_orbbec import frame_to_bgr_image, frame_to_rgb_image
+import logging
+
+try:
+    from pyorbbecsdk import *
+    from gym_hil.envs.utils_orbbec import frame_to_bgr_image, frame_to_rgb_image
+    ORBBEC_AVAILABLE = True
+except ImportError:
+    ORBBEC_AVAILABLE = False
+    logging.warning("pyorbbecsdk not available. Camera class will not be functional.")
+    # Create dummy functions for type hints
+    def frame_to_bgr_image(frame):
+        return np.zeros((480, 640, 3), dtype=np.uint8)
+    def frame_to_rgb_image(frame):
+        return np.zeros((480, 640, 3), dtype=np.uint8)
+
 import open3d as o3d
 import os
 MAX_QUEUE_SIZE = 1
@@ -14,9 +27,18 @@ MIN_DEPTH = 20  # 20mm
 MAX_DEPTH = 10000  # 10000mm
 class Camera():
     def __init__(self, sn="CP7X54P00084",camera_width=1920, camera_height=1080, camera_fps=30, enable_sync=True,
-                 align_filter = OBStreamType.COLOR_STREAM, temporal_alpha = 0.5, 
-                 sensor_type = {OBSensorType.COLOR_SENSOR:[640, 480, OBFormat.RGB, 30],
-                                OBSensorType.DEPTH_SENSOR:[640, 480, OBFormat.Y16, 30]}):
+                 align_filter = None, temporal_alpha = 0.5, 
+                 sensor_type = None):
+        if not ORBBEC_AVAILABLE:
+            raise ImportError("pyorbbecsdk not available. Please install pyorbbecsdk to use Camera.")
+        
+        # Set defaults using OBStreamType and OBSensorType
+        if align_filter is None:
+            align_filter = OBStreamType.COLOR_STREAM
+        if sensor_type is None:
+            sensor_type = {OBSensorType.COLOR_SENSOR:[640, 480, OBFormat.RGB, 30],
+                           OBSensorType.DEPTH_SENSOR:[640, 480, OBFormat.Y16, 30]}
+        
         ctx = Context()
         self.device =None
         device_list = ctx.query_devices()

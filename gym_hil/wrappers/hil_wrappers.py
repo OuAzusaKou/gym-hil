@@ -87,13 +87,20 @@ class EEActionWrapper(gym.ActionWrapper):
         Mujoco env is expecting a 7D action space
         [x, y, z, rx, ry, rz, gripper_open]
         For the moment we only control the x, y, z, gripper
+        Now supports rotation control if action has 6 dimensions
         """
 
         # action between -1 and 1, scale to step_size
         action_xyz = action[:3] * self._ee_step_size
-        # TODO: Extend to enable orientation control
-        actions_orn = np.zeros(3)
-
+        
+        # Check if action includes rotation (6D or 7D with gripper)
+        if len(action) >= 6:
+            # Rotation step size (in radians)
+            rotation_step_size = 0.1
+            actions_orn = action[3:6] * rotation_step_size
+        else:
+            # No rotation control
+            actions_orn = np.zeros(3)
         gripper_open_command = [0.0]
         if self.use_gripper:
             # NOTE: Normalize gripper action from [0, 2] -> [-1, 1]
@@ -181,13 +188,20 @@ class InputsControlWrapper(gym.Wrapper):
         # Update the controller to get fresh inputs
         self.controller.update()
 
-        # Get movement deltas from the controller
-        delta_x, delta_y, delta_z = self.controller.get_deltas()
+        # Get movement deltas from the controller (may include rotation)
+        deltas = self.controller.get_deltas()
+        
+        # Handle both 3D and 6D deltas
+        if len(deltas) == 6:
+            delta_x, delta_y, delta_z, delta_rx, delta_ry, delta_rz = deltas
+            # Create 6D action including rotation
+            gamepad_action = np.array([delta_x, delta_y, delta_z, delta_rx, delta_ry, delta_rz], dtype=np.float32)
+        else:
+            delta_x, delta_y, delta_z = deltas[:3]
+            # Create 3D action for translation only
+            gamepad_action = np.array([delta_x, delta_y, delta_z], dtype=np.float32)
 
         intervention_is_active = self.controller.should_intervene()
-
-        # Create action from gamepad input
-        gamepad_action = np.array([delta_x, delta_y, delta_z], dtype=np.float32)
 
         if self.use_gripper:
             gripper_command = self.controller.gripper_command()
