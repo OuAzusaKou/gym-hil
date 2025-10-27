@@ -17,6 +17,7 @@
 import gymnasium as gym
 
 from gym_hil.mujoco_gym_env import FrankaGymEnv, GymRenderingSpec, MujocoGymEnv
+from gym_hil.envs import RealCR5PickCubeGymEnv
 from gym_hil.wrappers.factory import make_env, wrap_env
 from gym_hil.wrappers.viewer_wrapper import PassiveViewerWrapper
 
@@ -25,6 +26,7 @@ __all__ = [
     "FrankaGymEnv",
     "GymRenderingSpec",
     "PassiveViewerWrapper",
+    "RealCR5PickCubeGymEnv",
     "make_env",
     "wrap_env",
 ]
@@ -115,3 +117,53 @@ register(
     max_episode_steps=100,
     kwargs={"env_id": "gym_hil/PandaArrangeBoxesBase-v0", "use_viewer": True, "gripper_penalty": -0.05},
 )
+
+# Register CR5 Robot Environment
+register(
+    id="gym_hil/RealCR5PickCube-v0",
+    entry_point="gym_hil.envs:RealCR5PickCubeGymEnv",
+    max_episode_steps=100,
+)
+
+register(
+    id="gym_hil/RealCR5PickCubeWrapped-v0",
+    entry_point="gym_hil.wrappers.factory:make_env",
+    max_episode_steps=100,
+    kwargs={
+        "env_id": "gym_hil/RealCR5PickCube-v0",
+    },
+)
+
+register(
+    id="gym_hil/RealCR5PickCubeGamePad-v0",
+    entry_point="gym_hil.wrappers.factory:make_env",
+    max_episode_steps=100,
+    kwargs={
+        "env_id": "gym_hil/RealCR5PickCube-v0",
+        # "use_viewer": True,
+        # "use_inputs_control": True,
+        "use_gamepad": True,
+    },
+)
+# register(
+#     id="gym_hil/RealPandaPickCubeGamepad-v0",
+#     entry_point="gym_hil.wrappers.factory:make_env",
+#     max_episode_steps=100,
+#     kwargs={
+#         "env_id": "gym_hil/RealPandaPickCubeBase-v0",
+#         "use_viewer": True,
+#         "use_gamepad": True,
+#     },
+# )
+
+# register(
+#     id="gym_hil/RealPandaPickCubeKeyboard-v0",
+#     entry_point="gym_hil.wrappers.factory:make_env",
+#     max_episode_steps=100,
+#     kwargs={
+#         "env_id": "gym_hil/RealPandaPickCubeBase-v0",
+#         "use_viewer": True,
+#         "gripper_penalty": -0.05,
+#     },
+# )
+

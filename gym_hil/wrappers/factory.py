@@ -6,6 +6,7 @@ import gymnasium as gym
 
 from gym_hil.envs.panda_arrange_boxes_gym_env import PandaArrangeBoxesGymEnv
 from gym_hil.envs.panda_pick_gym_env import PandaPickCubeGymEnv
+from gym_hil.envs.real_cr5_env import RealCR5PickCubeGymEnv
 from gym_hil.wrappers.hil_wrappers import (
     DEFAULT_EE_STEP_SIZE,
     EEActionWrapper,
@@ -117,6 +118,8 @@ def make_env(
         env = PandaPickCubeGymEnv(**kwargs)
     elif env_id == "gym_hil/PandaArrangeBoxesBase-v0":
         env = PandaArrangeBoxesGymEnv(**kwargs)
+    elif env_id == "gym_hil/RealCR5PickCube-v0":
+        env = RealCR5PickCubeGymEnv(**kwargs)
     else:
         raise ValueError(f"Environment ID {env_id} not supported")
 
