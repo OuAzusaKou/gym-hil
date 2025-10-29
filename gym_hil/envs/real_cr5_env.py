@@ -77,8 +77,8 @@ class RealRobotGymEnv(gym.Env, ABC):
             image_obs: bool = False,
             reward_type: str = "sparse",
             random_block_position: bool = False,
-            image_height: int = 128,
-            image_width: int = 128,
+            image_height: int = 480,
+            image_width: int = 480,
     ):
         super().__init__()
 
@@ -326,8 +326,8 @@ class RealPandaPickCubeGymEnv(RealRobotGymEnv):
             image_obs: bool = False,
             reward_type: str = "sparse",
             random_block_position: bool = False,
-            image_height: int = 128,
-            image_width: int = 128,
+            image_height: int = 480,
+            image_width: int = 480,
     ):
         super().__init__(
             seed=seed,
@@ -428,8 +428,8 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
             image_obs: bool = False,
             reward_type: str = "sparse",
             random_block_position: bool = False,
-            image_height: int = 128,
-            image_width: int = 128,
+            image_height: int = 480,
+            image_width: int = 480,
             ros2_config: Optional[ROS2RobotConfig] = None,
     ):
         # 调用父类初始化
