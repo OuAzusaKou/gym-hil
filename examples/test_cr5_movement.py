@@ -177,19 +177,12 @@ def main():
             # 向右移动并打开夹爪
             print(f"Cycle {cycle_count}/{num_cycles}: Moving RIGHT (+{move_distance}m) with gripper OPEN")
             action = np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], dtype=np.float32)  # 最后一位是夹爪控制
-            # 缩放动作以达到目标距离
-            action[0] = move_distance / 0.05  # 假设缩放因子是 0.05
-            action[0] = np.clip(action[0], -1.0, 1.0)  # 限制在动作空间内
-            action[6] = 1.0  # 夹爪打开 (1.0 = 完全打开)
+            # 计算动作值：move_distance / position_scale = move_distance / 0.05
         else:
             # 向左移动（回到原位）并关闭夹爪
             print(f"Cycle {cycle_count}/{num_cycles}: Moving LEFT (-{move_distance}m) with gripper CLOSED")
             action = np.array([-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32)  # 最后一位是夹爪控制
-            # 缩放动作以达到目标距离
-            action[0] = -move_distance / 0.05  # 假设缩放因子是 0.05
-            action[0] = np.clip(action[0], -1.0, 1.0)  # 限制在动作空间内
-            action[6] = -1.0  # 夹爪关闭 (-1.0 = 完全关闭)
-
+            # 计算动作值：move_distance / position_scale = move_distance / 0.05
         # 执行动作
         obs, reward, terminated, truncated, info = env.step(action)
         print(f"✓ Action executed successfully")
@@ -219,15 +212,6 @@ def main():
 
     print(f"\n✓ Completed {num_cycles} movement cycles successfully!")
     print("Demo finished.")
-
-    # except KeyboardInterrupt:
-    #     print("\nDemo interrupted by user")
-    # except Exception as e:
-    #     print(f"\n❌ Demo failed with error: {e}")
-    # finally:
-    #     if not env_closed:
-    #         env.close()
-    #         print("✓ Environment closed")
 
 
 if __name__ == "__main__":

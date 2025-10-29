@@ -67,30 +67,11 @@ def main():
         max_episode_steps=1000,  # 100 seconds * 10Hz
     )
 
-    # Print observation space for the wrapped environment
-    print("Wrapped observation space:", env.observation_space)
-
-    # Reset and check wrapped observation structure
-    obs, _ = env.reset()
-    print("Wrapped observation keys:", list(obs.keys()))
-
     # Reset environment
     obs, _ = env.reset()
-    
-    # Create dummy action - check if rotation is enabled
-    # Base action space: translation (3D) + rotation (3D, if enabled) + gripper (1D)
-    action_dim = env.action_space.shape[0]
+
     dummy_action = np.zeros(7, dtype=np.float32)
     dummy_action[-1] = 1  # 7D action: [x, y, z, rx, ry, rz, gripper]
-    
-    # Set gripper to "stay" position (middle value 1.0)
-    if action_dim >= 7:
-        dummy_action[-1] = 1  # 7D action: [x, y, z, rx, ry, rz, gripper]
-    elif action_dim == 6:
-        # 6D action: [x, y, z, rx, ry, rz] - no gripper in this case
-        pass
-    elif action_dim == 4:
-        dummy_action[-1] = 1  # 4D action: [x, y, z, gripper]
 
     try:
         while True:
