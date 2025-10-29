@@ -7,25 +7,28 @@ import time
 import logging
 import os
 
-try:
-    from gym_hil.envs.camera_orbbec_net import OrbbecCamera as Camera_ex
-    from gym_hil.envs.camera_orbbec_usb import Camera as Camera_wrist
-    CAMERA_AVAILABLE = True
-except ImportError as e:
-    CAMERA_AVAILABLE = False
-    logging.warning(f"Orbbec camera modules not available: {e}. Camera functionality will be disabled.")
-    # Create dummy camera classes
-    class Camera_ex:
-        def __init__(self, *args, **kwargs):
-            raise ImportError("pyorbbecsdk not available. Please install pyorbbecsdk to use cameras.")
-        def get_frame(self):
-            return np.zeros((480, 640, 3), dtype=np.uint8), np.zeros((480, 640), dtype=np.uint16)
+from gym_hil.envs.camera_orbbec_net import OrbbecCamera as Camera_ex
+from gym_hil.envs.camera_orbbec_usb import Camera as Camera_wrist
+CAMERA_AVAILABLE =True
+# try:
+#     from gym_hil.envs.camera_orbbec_net import OrbbecCamera as Camera_ex
+#     from gym_hil.envs.camera_orbbec_usb import Camera as Camera_wrist
+#     CAMERA_AVAILABLE = True
+# except ImportError as e:
+#     CAMERA_AVAILABLE = False
+#     logging.warning(f"Orbbec camera modules not available: {e}. Camera functionality will be disabled.")
+#     # Create dummy camera classes
+#     class Camera_ex:
+#         def __init__(self, *args, **kwargs):
+#             raise ImportError("pyorbbecsdk not available. Please install pyorbbecsdk to use cameras.")
+#         def get_frame(self):
+#             return np.zeros((480, 640, 3), dtype=np.uint8), np.zeros((480, 640), dtype=np.uint16)
     
-    class Camera_wrist:
-        def __init__(self, *args, **kwargs):
-            raise ImportError("pyorbbecsdk not available. Please install pyorbbecsdk to use cameras.")
-        def get_frame(self):
-            return np.zeros((480, 640, 3), dtype=np.uint8), np.zeros((480, 640), dtype=np.uint16)
+#     class Camera_wrist:
+#         def __init__(self, *args, **kwargs):
+#             raise ImportError("pyorbbecsdk not available. Please install pyorbbecsdk to use cameras.")
+#         def get_frame(self):
+#             return np.zeros((480, 640, 3), dtype=np.uint8), np.zeros((480, 640), dtype=np.uint16)
 
 # 尝试导入 ROS2 Robot 相关模块
 try:
@@ -40,15 +43,15 @@ except ImportError:
 _PANDA_HOME = np.asarray((0, 0.195, 0, -2.43, 0, 2.62, 0.785))
 _CR5_HOME_POSE = {
     "position": {
-        "x": 0.6944005394761854,
-        "y": 0.3327791993852288,
-        "z": 0.2682457175390543
+        "x": 0.584518056817291,
+        "y": 0.3642460674219568,
+        "z": 0.0015053084978433329
     },
     "orientation": {
-        "x": -0.45627227812278565,
-        "y": 0.5583642775482569,
-        "z": -0.4770099291881003,
-        "w": 0.5025002181398731
+        "x": -0.6899686714416541,
+        "y": 0.7222564003469695,
+        "z": -0.0211383861747002,
+        "w": 0.042919613427965346
     }
 }
 _CARTESIAN_BOUNDS = np.asarray([[0.2, -0.3, 0], [0.6, 0.3, 0.5]])
@@ -205,19 +208,19 @@ class RealRobotGymEnv(gym.Env, ABC):
         # 重置机器人到初始位置
         self._reset_robot_to_home()
 
-        # 如果启用随机方块位置，设置新的方块位置
-        if self.random_block_position:
-            block_xy = self.np_random.uniform(*_SAMPLING_BOUNDS)
-            # 这里需要调用设置方块位置的具体实现
-            # self._set_block_position(block_xy[0], block_xy[1], self._block_z)
-        else:
-            block_xy = np.array([0.5, 0.0])
-            # self._set_block_position(block_xy[0], block_xy[1], self._block_z)
+        # # 如果启用随机方块位置，设置新的方块位置
+        # if self.random_block_position:
+        #     block_xy = self.np_random.uniform(*_SAMPLING_BOUNDS)
+        #     # 这里需要调用设置方块位置的具体实现
+        #     # self._set_block_position(block_xy[0], block_xy[1], self._block_z)
+        # else:
+        #     block_xy = np.array([0.5, 0.0])
+        #     # self._set_block_position(block_xy[0], block_xy[1], self._block_z)
 
-        # 缓存初始方块高度
-        self._current_block_position = self._get_block_position()
-        self._z_init = self._current_block_position[2]
-        self._z_success = self._z_init + 0.1
+        # # 缓存初始方块高度
+        # self._current_block_position = self._get_block_position()
+        # self._z_init = self._current_block_position[2]
+        # self._z_success = self._z_init + 0.1
 
         # 获取初始观察
         obs = self._compute_observation()
@@ -241,12 +244,12 @@ class RealRobotGymEnv(gym.Env, ABC):
             success = rew == 1.0
 
         # 检查方块是否超出边界
-        block_pos = self._get_block_position()
-        exceeded_bounds = np.any(block_pos[:2] < (_SAMPLING_BOUNDS[0] - 0.05)) or np.any(
-            block_pos[:2] > (_SAMPLING_BOUNDS[1] + 0.05)
-        )
+        # block_pos = self._get_block_position()
+        # exceeded_bounds = np.any(block_pos[:2] < (_SAMPLING_BOUNDS[0] - 0.05)) or np.any(
+        #     block_pos[:2] > (_SAMPLING_BOUNDS[1] + 0.05)
+        # )
 
-        terminated = bool(success or exceeded_bounds)
+        terminated = bool(success)
 
         return obs, rew, terminated, False, {"succeed": success}
 
@@ -265,12 +268,13 @@ class RealRobotGymEnv(gym.Env, ABC):
                 "agent_pos": robot_state,
             }
         else:
-            # 仅状态观察
-            block_pos = self._get_block_position().astype(np.float32)
-            observation = {
-                "agent_pos": robot_state,
-                "environment_state": block_pos,
-            }
+            # # 仅状态观察
+            # block_pos = self._get_block_position().astype(np.float32)
+            # observation = {
+            #     "agent_pos": robot_state,
+            #     "environment_state": block_pos,
+            # }
+            raise "no implemental error"
 
         return observation
 
@@ -278,28 +282,14 @@ class RealRobotGymEnv(gym.Env, ABC):
         """计算奖励"""
         block_pos = self._get_block_position()
 
-        if self.reward_type == "dense":
-            # 需要获取TCP位置来计算距离奖励
-            # tcp_pos = self._get_tcp_position()  # 需要在子类中实现
-            # dist = np.linalg.norm(block_pos - tcp_pos)
-            # r_close = np.exp(-20 * dist)
-            # r_lift = (block_pos[2] - self._z_init) / (self._z_success - self._z_init)
-            # r_lift = np.clip(r_lift, 0.0, 1.0)
-            # return 0.3 * r_close + 0.7 * r_lift
-            return 0.0  # 临时返回值
-        else:
-            lift = block_pos[2] - self._z_init
-            return float(lift > 0.1)
+
+        return 0.0  # 临时返回值
+
 
     def _is_success(self) -> bool:
         """检查任务是否成功完成"""
-        block_pos = self._get_block_position()
-        # 需要获取TCP位置来计算距离
-        # tcp_pos = self._get_tcp_position()  # 需要在子类中实现
-        # dist = np.linalg.norm(block_pos - tcp_pos)
-        lift = block_pos[2] - self._z_init
-        # return dist < 0.05 and lift > 0.1
-        return lift > 0.1  # 临时简化版本
+ 
+        return False  # 临时简化版本
 
     def render(self):
         """渲染环境"""
@@ -424,36 +414,36 @@ class RealPandaPickCubeGymEnv(RealRobotGymEnv):
         return np.zeros(3)
 
 
-# 使用示例
-if __name__ == "__main__":
-    # 创建环境实例
-    if ROS2_AVAILABLE:
-        print("Creating RealCR5PickCubeGymEnv...")
-        env = RealCR5PickCubeGymEnv(
-            render_mode="rgb_array",
-            image_obs=False,  # 不使用图像观察
-            reward_type="sparse"
-        )
+# # 使用示例
+# if __name__ == "__main__":
+#     # 创建环境实例
+#     if ROS2_AVAILABLE:
+#         print("Creating RealCR5PickCubeGymEnv...")
+#         env = RealCR5PickCubeGymEnv(
+#             render_mode="rgb_array",
+#             image_obs=False,  # 不使用图像观察
+#             reward_type="sparse"
+#         )
 
-        # 重置环境
-        obs, info = env.reset()
-        print("初始观察:", obs.keys())
-        print("观察空间:", env.observation_space)
-        print("动作空间:", env.action_space)
+#         # 重置环境
+#         obs, info = env.reset()
+#         print("初始观察:", obs.keys())
+#         print("观察空间:", env.observation_space)
+#         print("动作空间:", env.action_space)
 
-        # 运行几步
-        for step in range(5):
-            action = env.action_space.sample()  # 随机动作
-            obs, reward, terminated, truncated, info = env.step(action)
-            print(f"步骤 {step}: 奖励={reward}, 成功={info.get('succeed', False)}")
+#         # 运行几步
+#         for step in range(5):
+#             action = env.action_space.sample()  # 随机动作
+#             obs, reward, terminated, truncated, info = env.step(action)
+#             print(f"步骤 {step}: 奖励={reward}, 成功={info.get('succeed', False)}")
 
-            if terminated:
-                break
+#             if terminated:
+#                 break
 
-        env.close()
-    else:
-        print("ROS2 modules not available. Please install lerobot_robot_ros2.")
-        print("For a complete demo, run: python examples/test_cr5_movement.py")
+#         env.close()
+#     else:
+#         print("ROS2 modules not available. Please install lerobot_robot_ros2.")
+#         print("For a complete demo, run: python examples/test_cr5_movement.py")
 
 
 class RealCR5PickCubeGymEnv(RealRobotGymEnv):
@@ -470,7 +460,19 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
         image_height: int = 128,
         image_width: int = 128,
         ros2_config: Optional[ROS2RobotConfig] = None,
-    ):
+    ):  
+                # 调用父类初始化
+        super().__init__(
+            seed=seed,
+            control_dt=control_dt,
+            render_mode=render_mode,
+            image_obs=image_obs,
+            reward_type=reward_type,
+            random_block_position=random_block_position,
+            image_height=image_height,
+            image_width=image_width,
+        )
+        
         # 检查 ROS2 模块是否可用
         if not ROS2_AVAILABLE:
             raise ImportError("ROS2 Robot modules not available. Please install lerobot_robot_ros2.")
@@ -492,18 +494,7 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
             except Exception as e:
                 logging.warning(f"Failed to initialize cameras: {e}. Camera functionality will be disabled.")
         
-        # 调用父类初始化
-        super().__init__(
-            seed=seed,
-            control_dt=control_dt,
-            render_mode=render_mode,
-            image_obs=image_obs,
-            reward_type=reward_type,
-            random_block_position=random_block_position,
-            image_height=image_height,
-            image_width=image_width,
-        )
-        
+
         # 初始化机器人连接
         self._initialize_robot()
 
@@ -625,55 +616,52 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
         if self.robot is None:
             raise RuntimeError("Robot not initialized")
         
-        try:
-            # 获取当前末端执行器位置
-            current_obs = self.robot.get_observation()
-            current_pos = np.array([
-                current_obs["end_effector.position.x"],
-                current_obs["end_effector.position.y"],
-                current_obs["end_effector.position.z"]
-            ])
-            current_ori = np.array([
-                current_obs["end_effector.orientation.x"],
-                current_obs["end_effector.orientation.y"],
-                current_obs["end_effector.orientation.z"],
-                current_obs["end_effector.orientation.w"]
-            ])
+        # 获取当前末端执行器位置
+        current_obs = self.robot.get_observation()
+        current_pos = np.array([
+            current_obs["end_effector.position.x"],
+            current_obs["end_effector.position.y"],
+            current_obs["end_effector.position.z"]
+        ])
+        current_ori = np.array([
+            current_obs["end_effector.orientation.x"],
+            current_obs["end_effector.orientation.y"],
+            current_obs["end_effector.orientation.z"],
+            current_obs["end_effector.orientation.w"]
+        ])
+        
+        # 定义动作缩放因子
+        position_scale = 0.1  # 5cm 最大位置增量
+        orientation_scale = 0.1  # 0.1弧度最大姿态增量
+        
+        # 计算目标位置（当前位置 + 增量）
+        target_pos = current_pos + action[:3] * position_scale
+        
+        # 计算目标姿态（当前位置 + 增量）
+        # 注意：这里简化处理，实际应该使用四元数运算
+        target_ori = current_ori + np.concatenate([action[3:6] * orientation_scale, [0.0]])
+        
+        # 处理夹爪控制命令
+        # action[6] 是夹爪命令：-1 表示关闭，1 表示打开
+        gripper_command = action[6]
+        # 将 [-1, 1] 映射到 [0, 1] 范围
+        gripper_position = (gripper_command + 1.0) / 2.0
+        
+        # 动作格式：[x, y, z, rx, ry, rz, grasp_command]
+        target_action = {
+            "end_effector.position.x": float(target_pos[0]),
+            "end_effector.position.y": float(target_pos[1]),
+            "end_effector.position.z": float(target_pos[2]),
+            "end_effector.orientation.x": float(target_ori[0]),
+            "end_effector.orientation.y": float(target_ori[1]),
+            "end_effector.orientation.z": float(target_ori[2]),
+            "end_effector.orientation.w": float(target_ori[3]),
+            "gripper.position": float(gripper_position),  # 添加夹爪控制
+        }
+        
+        self.robot.send_action(target_action)
             
-            # 定义动作缩放因子
-            position_scale = 0.5  # 5cm 最大位置增量
-            orientation_scale = 0.5  # 0.1弧度最大姿态增量
-            
-            # 计算目标位置（当前位置 + 增量）
-            target_pos = current_pos + action[:3] * position_scale
-            
-            # 计算目标姿态（当前位置 + 增量）
-            # 注意：这里简化处理，实际应该使用四元数运算
-            target_ori = current_ori + np.concatenate([action[3:6] * orientation_scale, [0.0]])
-            
-            # 处理夹爪控制命令
-            # action[6] 是夹爪命令：-1 表示关闭，1 表示打开
-            gripper_command = action[6]
-            # 将 [-1, 1] 映射到 [0, 1] 范围
-            gripper_position = (gripper_command + 1.0) / 2.0
-            
-            # 动作格式：[x, y, z, rx, ry, rz, grasp_command]
-            target_action = {
-                "end_effector.position.x": float(target_pos[0]),
-                "end_effector.position.y": float(target_pos[1]),
-                "end_effector.position.z": float(target_pos[2]),
-                "end_effector.orientation.x": float(target_ori[0]),
-                "end_effector.orientation.y": float(target_ori[1]),
-                "end_effector.orientation.z": float(target_ori[2]),
-                "end_effector.orientation.w": float(target_ori[3]),
-                "gripper.position": float(gripper_position),  # 添加夹爪控制
-            }
-            
-            self.robot.send_action(target_action)
-            
-        except Exception as e:
-            logging.error(f"Failed to send control command: {e}")
-            raise
+
 
     def _get_camera_images(self) -> Tuple[np.ndarray, np.ndarray]:
         """获取相机图像并调整到指定尺寸"""

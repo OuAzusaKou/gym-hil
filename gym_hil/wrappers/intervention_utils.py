@@ -335,6 +335,7 @@ class GamepadController(InputController):
         a_button = buttons.get("a", 0)  # Default to 0 if not found (Logitech F310)
         x_button = buttons.get("x", 2)  # Default to 2 if not found (Logitech F310)
         lt_button = buttons.get("lt", 6)  # Default to 6 if not found
+        lb_button = buttons.get("lt", 4)
         rt_button = buttons.get("rt", 7)  # Default to 7 if not found
         rb_button = buttons.get("rb", 5)  # Default to 5 if not found
 
@@ -346,7 +347,7 @@ class GamepadController(InputController):
                     self.episode_end_status = "failure"
                 elif event.button == x_button:
                     self.episode_end_status = "rerecord_episode"
-                elif event.button == lt_button:
+                elif event.button == lb_button:
                     self.close_gripper_command = True
                 elif event.button == rt_button:
                     self.open_gripper_command = True

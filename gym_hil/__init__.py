@@ -22,13 +22,14 @@ from gym_hil.wrappers.viewer_wrapper import PassiveViewerWrapper
 
 # Try to import RealCR5PickCubeGymEnv, but make it optional
 try:
-    from gym_hil.envs import RealCR5PickCubeGymEnv
+    from gym_hil.envs import RealCR5PickCubeGymEnv, CR5TaskGymEnv
     __all__ = [
         "MujocoGymEnv",
         "FrankaGymEnv",
         "GymRenderingSpec",
         "PassiveViewerWrapper",
         "RealCR5PickCubeGymEnv",
+        "CR5TaskGymEnv",
         "make_env",
         "wrap_env",
     ]
@@ -133,30 +134,60 @@ register(
 # Register CR5 Robot Environment (only if available)
 try:
     # Try to import to check if it's available
-    from gym_hil.envs import RealCR5PickCubeGymEnv
+    from gym_hil.envs import RealCR5PickCubeGymEnv, CR5TaskGymEnv
+    
+    # Register base CR5 environment
     register(
         id="gym_hil/RealCR5PickCube-v0",
         entry_point="gym_hil.envs:RealCR5PickCubeGymEnv",
-        max_episode_steps=100,
+        max_episode_steps=1000,
+    )
+
+    # Register CR5 Task environment
+    register(
+        id="gym_hil/CR5Task-v0",
+        entry_point="gym_hil.envs:CR5TaskGymEnv",
+        max_episode_steps=1000,
     )
 
     register(
         id="gym_hil/RealCR5PickCubeWrapped-v0",
         entry_point="gym_hil.wrappers.factory:make_env",
-        max_episode_steps=100,
+        max_episode_steps=1000,
         kwargs={
             "env_id": "gym_hil/RealCR5PickCube-v0",
+        },
+    )
+
+    # Register wrapped CR5 Task environment
+    register(
+        id="gym_hil/CR5TaskWrapped-v0",
+        entry_point="gym_hil.wrappers.factory:make_env",
+        max_episode_steps=1000,
+        kwargs={
+            "env_id": "gym_hil/CR5Task-v0",
         },
     )
 
     register(
         id="gym_hil/RealCR5PickCubeGamePad-v0",
         entry_point="gym_hil.wrappers.factory:make_env",
-        max_episode_steps=100,
+        max_episode_steps=1000,
         kwargs={
             "env_id": "gym_hil/RealCR5PickCube-v0",
             # "use_viewer": True,
             # "use_inputs_control": True,
+            "use_gamepad": True,
+        },
+    )
+
+    # Register CR5 Task with gamepad
+    register(
+        id="gym_hil/CR5TaskGamePad-v0",
+        entry_point="gym_hil.wrappers.factory:make_env",
+        max_episode_steps=1000,
+        kwargs={
+            "env_id": "gym_hil/CR5Task-v0",
             "use_gamepad": True,
         },
     )

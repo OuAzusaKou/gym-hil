@@ -23,7 +23,7 @@ import numpy as np
 
 from gym_hil.mujoco_gym_env import MAX_GRIPPER_COMMAND
 
-DEFAULT_EE_STEP_SIZE = {"x": 0.025, "y": 0.025, "z": 0.025}
+DEFAULT_EE_STEP_SIZE = {"x": 0.025, "y": 0.025, "z": 0.025,"r_x": 0.025, "r_y": 0.025, "r_z": 0.025,}
 
 
 class GripperPenaltyWrapper(gym.Wrapper):
@@ -61,9 +61,12 @@ class EEActionWrapper(gym.ActionWrapper):
                 ee_action_step_size["x"],
                 ee_action_step_size["y"],
                 ee_action_step_size["z"],
+                # ee_action_step_size["r_x"],
+                # ee_action_step_size["r_y"],
+                # ee_action_step_size["r_z"],
             ]
         )
-        num_actions = 3
+        num_actions = 6
 
         # Initialize action space bounds for the non-gripper case
         action_space_bounds_min = -np.ones(num_actions)

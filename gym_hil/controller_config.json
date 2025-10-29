@@ -138,7 +138,7 @@
     },
     "axis_inversion": {
       "left_x": false,
-      "left_y": true,
+      "left_y": false,
       "right_x": true,
       "right_y": true,
       "dpad_x": false,
