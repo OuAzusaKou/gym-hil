@@ -253,13 +253,15 @@ class KeyboardController(InputController):
 class GamepadController(InputController):
     """Generate motion deltas from gamepad input."""
 
-    def __init__(self, x_step_size=0.01, y_step_size=0.01, z_step_size=0.01, deadzone=0.1, config_path=None):
+    def __init__(self, x_step_size=0.01, y_step_size=0.01, z_step_size=0.01, deadzone=0.1, config_path=None, trigger_threshold=0.5):
         super().__init__(x_step_size, y_step_size, z_step_size)
         self.deadzone = deadzone
+        self.trigger_threshold = trigger_threshold  # 触发器阈值：轴值大于此值视为按下
         self.joystick = None
         self.intervention_flag = False
         self.config_path = config_path
         self.controller_config = None
+        self.high_speed_mode = True  # True=高速模式（默认）, False=低速模式（1/5速度）
 
     def start(self):
         """Initialize pygame and the gamepad."""
@@ -296,7 +298,12 @@ class GamepadController(InputController):
         else:
             print("⚠️  Rotation control DISABLED (requires at least 4 axes and 1 hat)")
 
+        # Display current speed mode
+        mode_str = "HIGH" if self.high_speed_mode else "LOW"
+        print(f"Current speed mode: {mode_str} ({'100%' if self.high_speed_mode else '20%'})")
+
         print("Gamepad controls:")
+        print(f"  {buttons.get('lb', 'LB')} button: Toggle speed mode (High/Low)")
         print(f"  {buttons.get('rb', 'RB')} button: Intervention")
         print("  Left analog stick: Move in X-Y plane")
         if self.enable_rotation:
@@ -308,8 +315,22 @@ class GamepadController(InputController):
             print("  - Up/Down: Roll rotation (rx)")
         else:
             print("  Right analog stick (vertical): Move in Z axis")
-        print(f"  {buttons.get('lt', 'LT')} button: Close gripper")
-        print(f"  {buttons.get('rt', 'RT')} button: Open gripper")
+        
+        # Check if LT/RT are configured as axes or buttons
+        axes = self.controller_config.get("axes", {})
+        lt_axis = axes.get("lt", None)
+        rt_axis = axes.get("rt", None)
+        
+        if lt_axis is not None:
+            print(f"  LT trigger (Axis {lt_axis}): Close gripper")
+        else:
+            print(f"  {buttons.get('lt', 'LT')} button: Close gripper")
+        
+        if rt_axis is not None:
+            print(f"  RT trigger (Axis {rt_axis}): Open gripper")
+        else:
+            print(f"  {buttons.get('rt', 'RT')} button: Open gripper")
+        
         print(f"  {buttons.get('b', 'B')}/Circle button: Exit")
         print(f"  {buttons.get('y', 'Y')}/Triangle button: End episode with SUCCESS")
         print(f"  {buttons.get('a', 'A')}/Cross button: End episode with FAILURE")
@@ -329,15 +350,22 @@ class GamepadController(InputController):
         """Process pygame events to get fresh gamepad readings."""
         import pygame
 
-        # Get button mappings from config
+        # Get button and axis mappings from config
         buttons = self.controller_config.get("buttons", {})
+        axes = self.controller_config.get("axes", {})
+        
         y_button = buttons.get("y", 3)  # Default to 3 if not found
         a_button = buttons.get("a", 0)  # Default to 0 if not found (Logitech F310)
         x_button = buttons.get("x", 2)  # Default to 2 if not found (Logitech F310)
-        lt_button = buttons.get("lt", 6)  # Default to 6 if not found
-        lb_button = buttons.get("lt", 4)
-        rt_button = buttons.get("rt", 7)  # Default to 7 if not found
+        lb_button = buttons.get("lb", 4)  # LB button for speed mode toggle
         rb_button = buttons.get("rb", 5)  # Default to 5 if not found
+        
+        # LT and RT can be either buttons or axes (triggers)
+        # Check if LT/RT are configured as axes
+        lt_axis = axes.get("lt", None)  # None means it's a button
+        rt_axis = axes.get("rt", None)  # None means it's a button
+        lt_button = buttons.get("lt", 6) if lt_axis is None else None
+        rt_button = buttons.get("rt", 7) if rt_axis is None else None
 
         for event in pygame.event.get():
             if event.type == pygame.JOYBUTTONDOWN:
@@ -348,24 +376,45 @@ class GamepadController(InputController):
                 elif event.button == x_button:
                     self.episode_end_status = "rerecord_episode"
                 elif event.button == lb_button:
-                    self.close_gripper_command = True
-                elif event.button == rt_button:
+                    # Toggle speed mode on LB button press
+                    self.high_speed_mode = not self.high_speed_mode
+                    mode_str = "HIGH" if self.high_speed_mode else "LOW"
+                    print(f"Speed mode switched to: {mode_str} ({'100%' if self.high_speed_mode else '20%'})")
+                # RT as button (only if not configured as axis)
+                elif rt_button is not None and event.button == rt_button:
                     self.open_gripper_command = True
 
             # Reset episode status on button release
             elif event.type == pygame.JOYBUTTONUP:
                 if event.button in [x_button, a_button, y_button]:
                     self.episode_end_status = None
-                elif event.button == lt_button:
+                # LT as button (only if not configured as axis)
+                elif lt_button is not None and event.button == lt_button:
                     self.close_gripper_command = False
-                elif event.button == rt_button:
+                # RT as button (only if not configured as axis)
+                elif rt_button is not None and event.button == rt_button:
                     self.open_gripper_command = False
 
-            # Check for RB button for intervention flag
-            if self.joystick.get_button(rb_button):
-                self.intervention_flag = True
-            else:
-                self.intervention_flag = False
+        # Read LT and RT triggers as axes if configured
+        # Triggers typically range from -1 (not pressed) to 1 (fully pressed)
+        # We check if the value is greater than threshold to consider it "pressed"
+        if lt_axis is not None:
+            lt_value = self.joystick.get_axis(lt_axis)
+            # Trigger axis: -1 (not pressed) -> 1 (fully pressed)
+            # Convert to 0-1 range: (value + 1) / 2, then check threshold
+            self.close_gripper_command = ((lt_value + 1) / 2.0) > self.trigger_threshold
+        
+        if rt_axis is not None:
+            rt_value = self.joystick.get_axis(rt_axis)
+            # Trigger axis: -1 (not pressed) -> 1 (fully pressed)
+            # Convert to 0-1 range: (value + 1) / 2, then check threshold
+            self.open_gripper_command = ((rt_value + 1) / 2.0) > self.trigger_threshold
+
+        # Check for RB button for intervention flag
+        if self.joystick.get_button(rb_button):
+            self.intervention_flag = True
+        else:
+            self.intervention_flag = False
 
     def get_deltas(self):
         """Get the current movement deltas from gamepad state."""
@@ -444,8 +493,23 @@ class GamepadController(InputController):
                 delta_ry = pitch_input  # Pitch
                 delta_rz = yaw_input  # Yaw rotation
                 
+                # Apply speed mode scaling (low speed = 1/5 of high speed)
+                speed_scale = 1.0 if self.high_speed_mode else 0.2
+                delta_x *= speed_scale
+                delta_y *= speed_scale
+                delta_z *= speed_scale
+                delta_rx *= speed_scale
+                delta_ry *= speed_scale
+                delta_rz *= speed_scale
+                
                 return delta_x, delta_y, delta_z, delta_rx, delta_ry, delta_rz
             else:
+                # Apply speed mode scaling (low speed = 1/5 of high speed)
+                speed_scale = 1.0 if self.high_speed_mode else 0.2
+                delta_x *= speed_scale
+                delta_y *= speed_scale
+                delta_z *= speed_scale
+                
                 return delta_x, delta_y, delta_z, 0.0, 0.0, 0.0
 
         except pygame.error:

@@ -606,8 +606,8 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
         ])
 
         # 定义动作缩放因子
-        position_scale = 0.03  # 5cm 最大位置增量
-        orientation_scale = 0.1  # 0.1弧度最大姿态增量
+        position_scale = 0.1  # 5cm 最大位置增量
+        orientation_scale = 0.5  # 0.1弧度最大姿态增量
 
         # 计算目标位置：如果位置动作为零，使用上一次的位置指令
         position_action = action[:3]
