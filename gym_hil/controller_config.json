@@ -137,8 +137,8 @@
       "rt": 7
     },
     "axis_inversion": {
-      "left_x": false,
-      "left_y": false,
+      "left_x": true,
+      "left_y": true,
       "right_x": true,
       "right_y": true,
       "dpad_x": false,

@@ -72,7 +72,7 @@ class RealRobotGymEnv(gym.Env, ABC):
     def __init__(
             self,
             seed: int = 0,
-            control_dt: float = 0.1,
+            control_dt: float = 0.02,
             render_mode: Literal["rgb_array", "human"] = "rgb_array",
             image_obs: bool = False,
             reward_type: str = "sparse",
@@ -606,7 +606,7 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
         ])
 
         # 定义动作缩放因子
-        position_scale = 0.1  # 5cm 最大位置增量
+        position_scale = 0.03  # 5cm 最大位置增量
         orientation_scale = 0.1  # 0.1弧度最大姿态增量
 
         # 计算目标位置：如果位置动作为零，使用上一次的位置指令
@@ -615,11 +615,9 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
             # 位置动作为零，使用上一次的位置指令
             if self._last_position_command is not None:
                 target_pos = self._last_position_command.copy()
-                print("Using cached position command")
             else:
                 target_pos = current_pos.copy()
                 self._last_position_command = target_pos.copy()
-                print("No cached position, using current position")
         else:
             # 位置动作非零，基于上一次指令计算新位置
             if self._last_position_command is not None:
@@ -627,7 +625,6 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
             else:
                 target_pos = current_pos + position_action * position_scale
             self._last_position_command = target_pos.copy()
-            print(f"New position command: {target_pos}")
 
         # 计算目标姿态：如果角度动作为零，使用上一次的角度指令
         orientation_action = action[3:6]
@@ -635,11 +632,9 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
             # 角度动作为零，使用上一次的角度指令
             if self._last_orientation_command is not None:
                 target_ori = self._last_orientation_command.copy()
-                print("Using cached orientation command")
             else:
                 target_ori = current_ori.copy()
                 self._last_orientation_command = target_ori.copy()
-                print("No cached orientation, using current orientation")
         else:
             # 角度动作非零，基于上一次指令计算新姿态
             rx, ry, rz = orientation_action * orientation_scale
@@ -683,7 +678,6 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
             
             # 缓存新的姿态指令
             self._last_orientation_command = target_ori.copy()
-            print(f"New orientation command: {target_ori}")
 
         # 处理夹爪控制命令
         # action[6] 是夹爪命令：-1 表示关闭，1 表示打开
@@ -776,7 +770,6 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
                 _CR5_HOME_POSE["orientation"]["z"],
                 _CR5_HOME_POSE["orientation"]["w"]
             ])
-            print("✓ Initialized cached commands to home position")
 
         except Exception as e:
             logging.error(f"Failed to reset robot to home: {e}")
