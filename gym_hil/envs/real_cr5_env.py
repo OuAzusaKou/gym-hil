@@ -77,8 +77,8 @@ class RealRobotGymEnv(gym.Env, ABC):
             image_obs: bool = False,
             reward_type: str = "sparse",
             random_block_position: bool = False,
-            image_height: int = 480,
-            image_width: int = 480,
+            image_height: int = 128,
+            image_width: int = 128,
     ):
         super().__init__()
 
@@ -428,8 +428,8 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
             image_obs: bool = False,
             reward_type: str = "sparse",
             random_block_position: bool = False,
-            image_height: int = 480,
-            image_width: int = 480,
+            image_height: int = 128,
+            image_width: int = 128,
             ros2_config: Optional[ROS2RobotConfig] = None,
     ):
         # 调用父类初始化
@@ -490,8 +490,8 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
                 gripper_max_position=1.0,  # 打开位置
                 max_linear_velocity=0.1,
                 max_angular_velocity=0.5,
-                joint_state_timeout=1.0,
-                end_effector_pose_timeout=1.0,
+                joint_state_timeout=0.0,
+                end_effector_pose_timeout=0.0,
             ),
             cameras={},  # 不使用相机
         )
@@ -625,7 +625,22 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
             else:
                 target_pos = current_pos + position_action * position_scale
             self._last_position_command = target_pos.copy()
-
+        
+        # 对 target_pos 进行限位
+        home_pos = np.array([
+            _CR5_HOME_POSE["position"]["x"],
+            _CR5_HOME_POSE["position"]["y"],
+            _CR5_HOME_POSE["position"]["z"]
+        ])
+        # x轴限制在 ±0.2 范围
+        target_pos[0] = np.clip(target_pos[0], home_pos[0] - 0.01, home_pos[0] + 0.08)
+        # y轴限制在 ±0.2 范围
+        target_pos[1] = np.clip(target_pos[1], home_pos[1] - 0.02, home_pos[1] + 0.04)
+        # z轴限制在 -0.1 到 +0.3 范围
+        target_pos[2] = np.clip(target_pos[2], home_pos[2] - 0.01, home_pos[2] + 0.02)
+        # 更新缓存的位置指令（限位后的值）
+        self._last_position_command = target_pos.copy()
+        
         # 计算目标姿态：如果角度动作为零，使用上一次的角度指令
         orientation_action = action[3:6]
         if np.allclose(orientation_action, 0, atol=1e-6):
@@ -677,6 +692,31 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
             target_ori = target_ori / np.linalg.norm(target_ori)
             
             # 缓存新的姿态指令
+            self._last_orientation_command = target_ori.copy()
+
+        # 对 target_orientation 进行限位（限制在 home orientation 附近 30 度范围内）
+        home_ori = np.array([
+            _CR5_HOME_POSE["orientation"]["x"],
+            _CR5_HOME_POSE["orientation"]["y"],
+            _CR5_HOME_POSE["orientation"]["z"],
+            _CR5_HOME_POSE["orientation"]["w"]
+        ])
+        # 计算角度差：cos(θ/2) = q1·q2
+        dot_product = np.clip(np.dot(target_ori, home_ori), -1.0, 1.0)
+        angle_diff = 2 * np.arccos(np.abs(dot_product))  # 角度差（弧度）
+        max_angle_diff = np.radians(10.0)  # 最大允许角度差：30度
+        
+        # 如果角度差超过限制，将其限制到 30 度
+        if angle_diff > max_angle_diff:
+            # 使用 SLERP 将姿态限制在允许范围内
+            t = max_angle_diff / angle_diff
+            sin_theta = np.sin(max_angle_diff / 2)
+            sin_theta_t = np.sin(angle_diff / 2)
+            if sin_theta_t > 1e-6:  # 避免除零
+                target_ori = (np.sin((1 - t) * angle_diff / 2) / sin_theta_t) * home_ori + \
+                           (np.sin(t * angle_diff / 2) / sin_theta_t) * target_ori
+            target_ori = target_ori / np.linalg.norm(target_ori)
+            # 更新缓存的姿态指令
             self._last_orientation_command = target_ori.copy()
 
         # 处理夹爪控制命令

@@ -1,4 +1,5 @@
 from typing import Any, Dict, Tuple
+import cv2
 import numpy as np
 import logging
 import time
@@ -19,17 +20,34 @@ TARGET_POS =   {
 class CR5TaskGymEnv(RealCR5PickCubeGymEnv):
     """CR5 任务环境 - 继承自 RealCR5PickCubeGymEnv 并扩展功能"""
 
-    def __init__(self, *args, target_pos: np.ndarray = None, target_orientation: Dict = None, **kwargs):
+    def __init__(self, *args, target_pos: np.ndarray = None, target_orientation: Dict = None,
+                 crop: Tuple[int, int, int, int] = [500,200,750,400],
+                 out_image_size: int = 128,
+                 image_obs: bool = True,
+                 **kwargs):
         """初始化任务环境
         
         Args:
             target_pos: 目标位置 [x, y, z]，默认为 TARGET_POS 中的位置
             target_orientation: 目标旋转字典 {'x', 'y', 'z', 'w'}，默认为 TARGET_POS 中的旋转
+            crop: 图像裁剪区域 (x, y, w, h)，先裁剪后再缩放到 out_image_size×out_image_size
+            out_image_size: 输出图像边长，默认 128
+            image_obs: 是否启用图像观测，默认 True
             *args, **kwargs: 传递给父类的参数
         """
-        # 调用父类初始化
-        super().__init__(*args, **kwargs)
+        # 调用父类初始化，固定输出分辨率为 out_image_size × out_image_size
+        super().__init__(
+            *args,
+            image_obs=image_obs,
+            image_height=out_image_size,
+            image_width=out_image_size,
+            **kwargs
+        )
         
+        # 裁剪配置
+        self.crop = crop  # (x, y, w, h)
+        self.out_image_size = int(out_image_size)
+
         # 设置预定义的目标位置和旋转
         if target_pos is None:
             target_pos = np.array([
@@ -53,8 +71,9 @@ class CR5TaskGymEnv(RealCR5PickCubeGymEnv):
         # 添加任务相关的自定义变量
         self.task_step_count = 0
         self.custom_info = {}
-        logging.info(f"Task environment initialized with target_pos: {self.target_pos}, target_orientation: {self.target_orientation}")
 
+        logging.info(f"Task environment initialized with target_pos: {self.target_pos}, target_orientation: {self.target_orientation}, crop: {self.crop}, out_image_size: {self.out_image_size}")
+    
     def _move_to_position(self, position: np.ndarray, orientation: Dict = None, gripper_position: float = None, wait_time: float = 2.0):
         """移动机器人到指定位置
         
@@ -93,6 +112,43 @@ class CR5TaskGymEnv(RealCR5PickCubeGymEnv):
         self.robot.send_action(action)
         time.sleep(wait_time)  # 等待机器人到达位置
 
+    def _get_camera_images(self) -> Tuple[np.ndarray, np.ndarray]:
+        """获取相机图像，先按 crop 裁剪，再 resize 到 out_image_size×out_image_size"""
+        # 直接使用父类里初始化的相机句柄
+
+
+        front_view, _ = self.ex_camera.get_frame()
+        wrist_view, _ = self.wrist_camera.get_frame()
+
+
+        # 执行裁剪 (x, y, w, h)
+        if self.crop is not None:
+            x, y, cw, ch = self.crop
+            def safe_crop(img):
+                H, W = img.shape[:2]
+                x0 = max(0, int(x))
+                y0 = max(0, int(y))
+                x1 = min(W, x0 + int(cw))
+                y1 = min(H, y0 + int(ch))
+                if x1 <= x0 or y1 <= y0:
+                    return img  # 无效裁剪则返回原图
+                return img[y0:y1, x0:x1]
+
+            front_view = safe_crop(front_view)
+            # wrist_view = safe_crop(wrist_view)
+
+        # 裁剪后再缩放到 out_image_size × out_image_size
+        out_sz = (self.out_image_size, self.out_image_size)
+        if front_view.shape[1] != self.out_image_size or front_view.shape[0] != self.out_image_size:
+            front_view = cv2.resize(front_view, out_sz)
+        if wrist_view.shape[1] != self.out_image_size or wrist_view.shape[0] != self.out_image_size:
+            wrist_view = cv2.resize(wrist_view, out_sz)
+
+        return front_view, wrist_view
+
+
+
+
     def reset(self, seed=None, **kwargs) -> Tuple[Dict[str, np.ndarray], Dict[str, Any]]:
         """重置环境 - 执行预定义动作序列后调用父类reset"""
         
@@ -106,31 +162,31 @@ class CR5TaskGymEnv(RealCR5PickCubeGymEnv):
         current_pos = self._get_tcp_position()
         self._move_to_position(current_pos, gripper_position=1.0, wait_time=3.0)
         
-        # 2. 移动到 target pos 正上方 5cm
-        logging.info(f"Moving to 5cm above target position {self.target_pos}...")
-        above_target = self.target_pos.copy()
-        above_target[2] += 0.05  # 向上5cm
-        self._move_to_position(above_target, gripper_position=1.0, wait_time=3.0)
+        # # 2. 移动到 target pos 正上方 5cm
+        # logging.info(f"Moving to 5cm above target position {self.target_pos}...")
+        # above_target = self.target_pos.copy()
+        # above_target[2] += 0.05  # 向上5cm
+        # self._move_to_position(above_target, gripper_position=1.0, wait_time=3.0)
         
-        # 3. 下降到 target pos
-        logging.info(f"Moving down to target position {self.target_pos}...")
-        self._move_to_position(self.target_pos, gripper_position=1.0, wait_time=3.0)
+        # # 3. 下降到 target pos
+        # logging.info(f"Moving down to target position {self.target_pos}...")
+        # self._move_to_position(self.target_pos, gripper_position=1.0, wait_time=3.0)
         
-        # 4. 关闭夹爪
-        logging.info("Closing gripper...")
-        self._move_to_position(self.target_pos, gripper_position=0.0, wait_time=3.0)
+        # # 4. 关闭夹爪
+        # logging.info("Closing gripper...")
+        # self._move_to_position(self.target_pos, gripper_position=0.0, wait_time=3.0)
         
-        # 5. 后退10cm（沿Z轴正方向）
-        logging.info("Moving back 10cm...")
-        back_pos = self.target_pos.copy()
-        back_pos[0] -= 0.05  # 沿Z轴后退10cm
-        self._move_to_position(back_pos, gripper_position=0.0, wait_time=2.0)
+        # # 5. 后退10cm（沿Z轴正方向）
+        # logging.info("Moving back 10cm...")
+        # back_pos = self.target_pos.copy()
+        # back_pos[0] -= 0.05  # 沿Z轴后退10cm
+        # self._move_to_position(back_pos, gripper_position=0.0, wait_time=2.0)
         
-        # 6. 打开夹爪
-        logging.info("Opening gripper...")
-        self._move_to_position(back_pos, gripper_position=1.0, wait_time=1.0)
+        # # 6. 打开夹爪
+        # logging.info("Opening gripper...")
+        # self._move_to_position(back_pos, gripper_position=1.0, wait_time=1.0)
         
-        logging.info("Custom reset sequence completed, calling parent reset...")
+        # logging.info("Custom reset sequence completed, calling parent reset...")
         
         # 7. 最后调用父类的reset函数
         obs, info = super().reset(seed=seed, **kwargs)

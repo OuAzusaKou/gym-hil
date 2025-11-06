@@ -140,20 +140,20 @@ try:
     register(
         id="gym_hil/RealCR5PickCube-v0",
         entry_point="gym_hil.envs:RealCR5PickCubeGymEnv",
-        max_episode_steps=1000,
+        max_episode_steps=2000,
     )
 
     # Register CR5 Task environment
     register(
         id="gym_hil/CR5Task-v0",
         entry_point="gym_hil.envs:CR5TaskGymEnv",
-        max_episode_steps=1000,
+        max_episode_steps=2000,
     )
 
     register(
         id="gym_hil/RealCR5PickCubeWrapped-v0",
         entry_point="gym_hil.wrappers.factory:make_env",
-        max_episode_steps=1000,
+        max_episode_steps=2000,
         kwargs={
             "env_id": "gym_hil/RealCR5PickCube-v0",
         },
@@ -163,7 +163,7 @@ try:
     register(
         id="gym_hil/CR5TaskWrapped-v0",
         entry_point="gym_hil.wrappers.factory:make_env",
-        max_episode_steps=1000,
+        max_episode_steps=2000,
         kwargs={
             "env_id": "gym_hil/CR5Task-v0",
         },
@@ -172,7 +172,7 @@ try:
     register(
         id="gym_hil/RealCR5PickCubeGamePad-v0",
         entry_point="gym_hil.wrappers.factory:make_env",
-        max_episode_steps=1000,
+        max_episode_steps=2000,
         kwargs={
             "env_id": "gym_hil/RealCR5PickCube-v0",
             # "use_viewer": True,
@@ -185,7 +185,7 @@ try:
     register(
         id="gym_hil/CR5TaskGamePad-v0",
         entry_point="gym_hil.wrappers.factory:make_env",
-        max_episode_steps=1000,
+        max_episode_steps=4000,
         kwargs={
             "env_id": "gym_hil/CR5Task-v0",
             "use_gamepad": True,
