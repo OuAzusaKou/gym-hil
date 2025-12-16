@@ -32,7 +32,7 @@ class TemporalFilter:
         return result
 
 class OrbbecCamera:
-    def __init__(self, ip="192.168.5.124", port=8090):
+    def __init__(self, ip="192.168.1.124", port=8090):
         if not ORBBEC_AVAILABLE:
             raise ImportError("pyorbbecsdk not available. Please install pyorbbecsdk to use OrbbecCamera.")
         self.ctx = Context()
@@ -206,7 +206,7 @@ def rgbd2pcd(rgb, depth, depth_intrinsics_dict):
 # 使用示例
 if __name__ == "__main__":
     vis_type = "1pointcloud"
-    with OrbbecCamera(ip="192.168.5.124") as camera:
+    with OrbbecCamera(ip="192.168.1.124") as camera:
         intrinsics = camera.get_camera_intrinsic()
         print("Full intrinsics:", intrinsics)
         
@@ -248,6 +248,19 @@ if __name__ == "__main__":
                     depth_image = cv2.normalize(depth_frame, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
                     depth_image = cv2.applyColorMap(depth_image, cv2.COLORMAP_JET)
                     cv2.imshow("Depth Viewer", depth_image)
+                    x, y, cw, ch = [350,120,550,350]
+                    def safe_crop(img):
+                        H, W = img.shape[:2]
+                        x0 = max(0, int(x))
+                        y0 = max(0, int(y))
+                        x1 = min(W, x0 + int(cw))
+                        y1 = min(H, y0 + int(ch))
+                        if x1 <= x0 or y1 <= y0:
+                            return img  # 无效裁剪则返回原图
+                        return img[y0:y1, x0:x1]
+
+                    color_frame = safe_crop(color_frame)
+
                     
                     # 显示彩色图像
                     cv2.imshow("Color Viewer", color_frame)

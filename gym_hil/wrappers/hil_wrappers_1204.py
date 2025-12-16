@@ -32,16 +32,10 @@ class GripperPenaltyWrapper(gym.Wrapper):
         super().__init__(env)
         self.penalty = penalty
         self.last_gripper_pos = None
-        self.gripper_success= False
-        self.gripper_success_count = 0  # 连续成功计数器
-        self.last_action_gripper = None  # 上一次动作的 action[-1]
 
     def reset(self, **kwargs):
         obs, info = self.env.reset(**kwargs)
-        self.last_gripper_pos = (self.unwrapped.get_gripper_pose() - 0.5) * 2.0
-        self.gripper_success_count = 0  # 重置计数器
-        self.gripper_success = False
-        self.last_action_gripper = None  # 重置上一次动作
+        self.last_gripper_pos = self.unwrapped.get_gripper_pose() / MAX_GRIPPER_COMMAND
         return obs, info
 
     def step(self, action):
@@ -49,32 +43,13 @@ class GripperPenaltyWrapper(gym.Wrapper):
         observation, reward, terminated, truncated, info = self.env.step(action)
 
         info["discrete_penalty"] = 0.0
-        # 当 action[-1] 和上一次动作的 action[-1] 的差值超过 0.4 时给予惩罚
-        # if self.last_action_gripper is not None and abs(action[-1] - self.last_action_gripper) > 0.4:
-        #     info["discrete_penalty"] += -0.2
-        # 更新上一次动作值
-        self.last_action_gripper = action[-1]
+        if (action[-1] < -0.5 and self.last_gripper_pos > 0.9) or (
+            action[-1] > 0.5 and self.last_gripper_pos < 0.1
+        ):
+            info["discrete_penalty"] = self.penalty
         gripper_pos  = self.unwrapped.get_gripper_pose()
-        if (gripper_pos >0.05) and (gripper_pos < 0.15):
-            # 在范围内，增加计数器
-            self.gripper_success_count += 1
-            # 连续三次都在范围内才判定为成功
-            if self.gripper_success_count >= 3:
-                if not self.gripper_success:
-                    self.gripper_success = True
-                    info["discrete_penalty"] += -self.penalty
-                else:
-                    info["discrete_penalty"] += 0
-            else:
-                # 还未达到三次，不判定为成功
-                info["discrete_penalty"] += 0
-        else:
-            # 不在范围内，重置计数器
-            self.gripper_success_count = 0
-            if self.gripper_success:
-                info["discrete_penalty"] += self.penalty
-                self.gripper_success = False
-
+        if gripper_pos >0.05 and gripper_pos < 0.2:
+            info["discrete_penalty"] = self.penalty + 2
         self.last_gripper_pos = (gripper_pos - 0.5) * 2.0
         return observation, reward, terminated, truncated, info
 

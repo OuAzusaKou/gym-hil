@@ -12,8 +12,10 @@ import os
 # CAMERA_AVAILABLE =True
 
 try:
-    from gym_hil.envs.camera_orbbec_net import OrbbecCamera as Camera_ex
-    from gym_hil.envs.camera_orbbec_usb import Camera as Camera_wrist
+    # from gym_hil.envs.camera_orbbec_net import OrbbecCamera as Camera_ex
+    from gym_hil.envs.camera_orbbec_net_multi_thread import OrbbecCamera as Camera_ex
+    # from gym_hil.envs.camera_orbbec_usb import Camera as Camera_wrist
+    from gym_hil.envs.camera_realsense import Camera as Camera_wrist
 
     CAMERA_AVAILABLE = True
 except ImportError as e:
@@ -51,15 +53,15 @@ except ImportError:
 _PANDA_HOME = np.asarray((0, 0.195, 0, -2.43, 0, 2.62, 0.785))
 _CR5_HOME_POSE = {
     "position": {
-        "x": 0.584518056817291,
-        "y": 0.3642460674219568,
-        "z": 0.0015053084978433329
+        "x": -0.40,
+        "y": 0.210299,
+        "z": 0.051178
     },
     "orientation": {
-        "x": -0.6899686714416541,
-        "y": 0.7222564003469695,
-        "z": -0.0211383861747002,
-        "w": 0.042919613427965346
+        "x": 0.0,
+        "y": 0.1,
+        "z": 0.0,
+        "w": 0.0
     }
 }
 _CARTESIAN_BOUNDS = np.asarray([[0.2, -0.3, 0], [0.6, 0.3, 0.5]])
@@ -460,17 +462,17 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
         # 缓存上一次的控制指令
         self._last_position_command = None
         self._last_orientation_command = None
+        self._last_gripper_position = None  # 记录上一次的夹爪位置
+
 
         # 仅在需要时初始化摄像头
-        if self.image_obs and CAMERA_AVAILABLE:
-            try:
-                self.wrist_camera = Camera_wrist()
-                self.ex_camera = Camera_ex()
-            except Exception as e:
-                logging.warning(f"Failed to initialize cameras: {e}. Camera functionality will be disabled.")
+
+        self.wrist_camera = Camera_wrist()
+        self.ex_camera = Camera_ex()
 
         # 初始化机器人连接
         self._initialize_robot()
+        self._last_gripper_position = self.get_gripper_pose()
 
     @staticmethod
     def _create_default_cr5_config() -> ROS2RobotConfig:
@@ -484,9 +486,9 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
                 control_type=ControlType.CARTESIAN_POSE,
                 joint_names=["left_joint1", "left_joint2", "left_joint3", "left_joint4", "left_joint5", "left_joint6"],
                 gripper_enabled=True,
-                gripper_joint_name="left_gripper_joint",
-                gripper_command_topic="left_gripper_joint/position_command",  # 夹爪控制话题
-                gripper_min_position=0.105,  # 关闭位置
+                gripper_joint_name="gripper_joint",
+                gripper_command_topic="gripper_joint/position_command",  # 夹爪控制话题
+                gripper_min_position=0.0,  # 关闭位置
                 gripper_max_position=1.0,  # 打开位置
                 max_linear_velocity=0.1,
                 max_angular_velocity=0.5,
@@ -606,7 +608,7 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
         ])
 
         # 定义动作缩放因子
-        position_scale = 0.1  # 5cm 最大位置增量
+        position_scale = 0.2  # 5cm 最大位置增量
         orientation_scale = 0.5  # 0.1弧度最大姿态增量
 
         # 计算目标位置：如果位置动作为零，使用上一次的位置指令
@@ -633,11 +635,11 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
             _CR5_HOME_POSE["position"]["z"]
         ])
         # x轴限制在 ±0.2 范围
-        target_pos[0] = np.clip(target_pos[0], home_pos[0] - 0.01, home_pos[0] + 0.08)
+        target_pos[0] = np.clip(target_pos[0], home_pos[0] - 0.04, home_pos[0] + 0.015)
         # y轴限制在 ±0.2 范围
-        target_pos[1] = np.clip(target_pos[1], home_pos[1] - 0.02, home_pos[1] + 0.04)
+        target_pos[1] = np.clip(target_pos[1], home_pos[1] - 0.03, home_pos[1] + 0.005)
         # z轴限制在 -0.1 到 +0.3 范围
-        target_pos[2] = np.clip(target_pos[2], home_pos[2] - 0.01, home_pos[2] + 0.02)
+        target_pos[2] = np.clip(target_pos[2], home_pos[2] - 0.022, home_pos[2] + 0.03)
         # 更新缓存的位置指令（限位后的值）
         self._last_position_command = target_pos.copy()
         
@@ -724,6 +726,8 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
         gripper_command = action[6]
         # 将 [-1, 1] 映射到 [0, 1] 范围
         gripper_position = (gripper_command + 1.0) / 2.0
+        print(f"gripper_position: {gripper_position}")
+        
 
         # 动作格式：[x, y, z, rx, ry, rz, grasp_command]
         target_action = {
@@ -738,6 +742,15 @@ class RealCR5PickCubeGymEnv(RealRobotGymEnv):
         }
 
         self.robot.send_action(target_action)
+
+                # 检查夹爪位置变化，如果相差0.4以上则sleep(0.6)
+        if self._last_gripper_position is not None:
+            gripper_diff = abs(gripper_position - self._last_gripper_position)
+            if gripper_diff >= 0.4:
+                time.sleep(1.0)
+        
+        # 更新上一次的夹爪位置
+        self._last_gripper_position = gripper_position
 
     def _get_camera_images(self) -> Tuple[np.ndarray, np.ndarray]:
         """获取相机图像并调整到指定尺寸"""
