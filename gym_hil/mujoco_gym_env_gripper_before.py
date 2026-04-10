@@ -161,7 +161,7 @@ class FrankaGymEnv(MujocoGymEnv):
         # Cache robot IDs
         self._panda_dof_ids = np.asarray([self._model.joint(f"joint{i}").id for i in range(1, 8)])
         self._panda_ctrl_ids = np.asarray([self._model.actuator(f"actuator{i}").id for i in range(1, 8)])
-        self._gripper_ctrl_id = self._model.actuator("gripper_actuator").id
+        self._gripper_ctrl_id = self._model.actuator("fingers_actuator").id
         self._pinch_site_id = self._model.site("pinch").id
 
         # Setup observation and action spaces
@@ -222,10 +222,9 @@ class FrankaGymEnv(MujocoGymEnv):
         self._data.qpos[self._panda_dof_ids] = self._home_position
         self._data.ctrl[self._panda_ctrl_ids] = 0.0
         mujoco.mj_forward(self._model, self._data)
-        self._data.ctrl[self._gripper_ctrl_id] = 255
 
         # Reset mocap body to home position
-        tcp_pos = self._data.sensor("changingtek/pinch_pos").data
+        tcp_pos = self._data.sensor("2f85/pinch_pos").data
         self._data.mocap_pos[0] = tcp_pos
 
     def apply_action(self, action):
@@ -301,10 +300,10 @@ class FrankaGymEnv(MujocoGymEnv):
 
     def get_robot_state(self):
         """Get the current state of the robot."""
-        tcp_pos = self._data.sensor("changingtek/pinch_pos").data
-        # tcp_quat = self._data.sensor("changingtek/pinch_quat").data
-        # tcp_vel = self._data.sensor("changingtek/pinch_vel").data
-        # tcp_angvel = self._data.sensor("changingtek/pinch_angvel").data
+        tcp_pos = self._data.sensor("2f85/pinch_pos").data
+        # tcp_quat = self._data.sensor("2f85/pinch_quat").data
+        # tcp_vel = self._data.sensor("2f85/pinch_vel").data
+        # tcp_angvel = self._data.sensor("2f85/pinch_angvel").data
         qpos = self.data.qpos[self._panda_dof_ids].astype(np.float32)
         qvel = self.data.qvel[self._panda_dof_ids].astype(np.float32)
         gripper_pose = self.get_gripper_pose()

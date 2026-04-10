@@ -18,10 +18,9 @@ from gym_hil.envs.panda_arrange_boxes_gym_env import PandaArrangeBoxesGymEnv
 from gym_hil.envs.panda_pick_gym_env import PandaPickCubeGymEnv
 
 # Try to import RealCR5PickCubeGymEnv, but make it optional
-try:
-    from gym_hil.envs.real_cr5_env import RealCR5PickCubeGymEnv
-    from gym_hil.envs.cr5_task_env import CR5TaskGymEnv
-    __all__ = ["PandaPickCubeGymEnv", "PandaArrangeBoxesGymEnv", "RealCR5PickCubeGymEnv", "CR5TaskGymEnv"]
-except ImportError:
-    # If dependencies are not available, CR5 environments won't be available
-    __all__ = ["PandaPickCubeGymEnv", "PandaArrangeBoxesGymEnv"]
+
+# from gym_hil.envs.real_cr5_env import RealCR5PickCubeGymEnv
+# from gym_hil.envs.cr5_task_env import CR5TaskGymEnv
+from gym_hil.envs.peg_insertion_env import PegInsertionEnv
+__all__ = ["PandaPickCubeGymEnv", "PandaArrangeBoxesGymEnv", "RealCR5PickCubeGymEnv", "CR5TaskGymEnv", "PegInsertionEnv"]
+

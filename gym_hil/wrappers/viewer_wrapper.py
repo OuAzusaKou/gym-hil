@@ -61,6 +61,21 @@ class PassiveViewerWrapper(gym.Wrapper):
         observation, info = self.env.reset(**kwargs)
         self._viewer.sync()
         return observation, info
+    # def reset(self, **kwargs):
+    #     observation, info = self.env.reset(**kwargs)
+        
+    #     # 重启 passive viewer 以绑定新的 model/data
+    #     try:
+    #         self._viewer.close()
+    #     except Exception:
+    #         pass
+        
+    #     self._viewer = mujoco.viewer.launch_passive(
+    #         self.env.unwrapped.model,
+    #         self.env.unwrapped.data,
+    #     )
+    #     self._viewer.sync()
+    #     return observation, info
 
     def step(self, action):  # type: ignore[override]
         observation, reward, terminated, truncated, info = self.env.step(action)

@@ -279,8 +279,6 @@ class InputsControlWrapper(gym.Wrapper):
         ) = self.get_gamepad_action()
 
         # Update episode ending state if requested
-        if terminate_episode:
-            logging.info(f"Episode manually ended: {'SUCCESS' if success else 'FAILURE'}")
 
         if is_intervention:
             action = gamepad_action
@@ -288,12 +286,18 @@ class InputsControlWrapper(gym.Wrapper):
         # Step the environment
         obs, reward, terminated, truncated, info = self.env.step(action)
 
+        if terminate_episode:
+            logging.info(f"Episode manually ended: {'SUCCESS' if success else 'FAILURE'}")
+            # reward -= 0.5
+            logging.info("Episode ended with penalty 0.5")
+
+
         # Add episode ending if requested via gamepad
         terminated = terminated or truncated or terminate_episode
 
         if success:
             reward += 1.0
-            logging.info("Episode ended successfully with reward 1.0")
+            logging.info("Episode ended successfully")
 
         info["is_intervention"] = is_intervention
         action_intervention = action
@@ -305,8 +309,8 @@ class InputsControlWrapper(gym.Wrapper):
         if terminated or truncated:
             # Add success/failure information to info dict
             info["next.success"] = success
-            if not success:
-                reward -= 0.5
+            # if not success:
+            #     reward -= 0.5
             # Auto reset if configured
             if self.auto_reset:
                 obs, reset_info = self.reset()

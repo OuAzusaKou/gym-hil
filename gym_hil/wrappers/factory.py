@@ -6,8 +6,9 @@ import gymnasium as gym
 
 from gym_hil.envs.panda_arrange_boxes_gym_env import PandaArrangeBoxesGymEnv
 from gym_hil.envs.panda_pick_gym_env import PandaPickCubeGymEnv
-from gym_hil.envs.real_cr5_env import RealCR5PickCubeGymEnv
-from gym_hil.envs.cr5_task_env import CR5TaskGymEnv
+# from gym_hil.envs.real_cr5_env import RealCR5PickCubeGymEnv
+# from gym_hil.envs.cr5_task_env import CR5TaskGymEnv
+from gym_hil.envs.peg_insertion_env import PegInsertionEnv
 
 from gym_hil.wrappers.hil_wrappers import (
     DEFAULT_EE_STEP_SIZE,
@@ -124,6 +125,8 @@ def make_env(
         env = RealCR5PickCubeGymEnv(**kwargs)
     elif env_id =='gym_hil/CR5Task-v0':
         env = CR5TaskGymEnv(**kwargs)
+    elif env_id == "gym_hil/PegInsertionBase-v0":
+        env = PegInsertionEnv(**kwargs)
     else:
         raise ValueError(f"Environment ID {env_id} not supported")
 

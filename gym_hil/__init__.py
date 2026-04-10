@@ -22,7 +22,7 @@ from gym_hil.wrappers.viewer_wrapper import PassiveViewerWrapper
 
 # Try to import RealCR5PickCubeGymEnv, but make it optional
 try:
-    from gym_hil.envs import RealCR5PickCubeGymEnv, CR5TaskGymEnv
+    # from gym_hil.envs import RealCR5PickCubeGymEnv, CR5TaskGymEnv
     __all__ = [
         "MujocoGymEnv",
         "FrankaGymEnv",
@@ -132,87 +132,111 @@ register(
 )
 
 # Register CR5 Robot Environment (only if available)
-try:
     # Try to import to check if it's available
-    from gym_hil.envs import RealCR5PickCubeGymEnv, CR5TaskGymEnv
-    
-    # Register base CR5 environment
-    register(
-        id="gym_hil/RealCR5PickCube-v0",
-        entry_point="gym_hil.envs:RealCR5PickCubeGymEnv",
-        max_episode_steps=800,
-    )
+# from gym_hil.envs import RealCR5PickCubeGymEnv, CR5TaskGymEnv
 
-    # Register CR5 Task environment
-    register(
-        id="gym_hil/CR5Task-v0",
-        entry_point="gym_hil.envs:CR5TaskGymEnv",
-        max_episode_steps=800,
-    )
-
-    register(
-        id="gym_hil/RealCR5PickCubeWrapped-v0",
-        entry_point="gym_hil.wrappers.factory:make_env",
-        max_episode_steps=800,
-        kwargs={
-            "env_id": "gym_hil/RealCR5PickCube-v0",
-        },
-    )
-
-    # Register wrapped CR5 Task environment
-    register(
-        id="gym_hil/CR5TaskWrapped-v0",
-        entry_point="gym_hil.wrappers.factory:make_env",
-        max_episode_steps=800,
-        kwargs={
-            "env_id": "gym_hil/CR5Task-v0",
-        },
-    )
-
-    register(
-        id="gym_hil/RealCR5PickCubeGamePad-v0",
-        entry_point="gym_hil.wrappers.factory:make_env",
-        max_episode_steps=800,
-        kwargs={
-            "env_id": "gym_hil/RealCR5PickCube-v0",
-            # "use_viewer": True,
-            # "use_inputs_control": True,
-            "use_gamepad": True,
-        },
-    )
-
-    # Register CR5 Task with gamepad
-    register(
-        id="gym_hil/CR5TaskGamePad-v0",
-        entry_point="gym_hil.wrappers.factory:make_env",
-        max_episode_steps=800,
-        kwargs={
-            "env_id": "gym_hil/CR5Task-v0",
-            "use_gamepad": True,
-        },
-    )
-except ImportError:
-    # CR5 environment not available due to missing dependencies
-    pass
+# # Register base CR5 environment
 # register(
-#     id="gym_hil/RealPandaPickCubeGamepad-v0",
+#     id="gym_hil/RealCR5PickCube-v0",
+#     entry_point="gym_hil.envs:RealCR5PickCubeGymEnv",
+#     max_episode_steps=800,
+# )
+
+# # Register CR5 Task environment
+# register(
+#     id="gym_hil/CR5Task-v0",
+#     entry_point="gym_hil.envs:CR5TaskGymEnv",
+#     max_episode_steps=800,
+# )
+
+# register(
+#     id="gym_hil/RealCR5PickCubeWrapped-v0",
 #     entry_point="gym_hil.wrappers.factory:make_env",
-#     max_episode_steps=100,
+#     max_episode_steps=800,
 #     kwargs={
-#         "env_id": "gym_hil/RealPandaPickCubeBase-v0",
-#         "use_viewer": True,
+#         "env_id": "gym_hil/RealCR5PickCube-v0",
+#     },
+# )
+
+# # Register wrapped CR5 Task environment
+# register(
+#     id="gym_hil/CR5TaskWrapped-v0",
+#     entry_point="gym_hil.wrappers.factory:make_env",
+#     max_episode_steps=800,
+#     kwargs={
+#         "env_id": "gym_hil/CR5Task-v0",
+#     },
+# )
+
+# register(
+#     id="gym_hil/RealCR5PickCubeGamePad-v0",
+#     entry_point="gym_hil.wrappers.factory:make_env",
+#     max_episode_steps=800,
+#     kwargs={
+#         "env_id": "gym_hil/RealCR5PickCube-v0",
+#         # "use_viewer": True,
+#         # "use_inputs_control": True,
 #         "use_gamepad": True,
 #     },
 # )
 
+# # Register CR5 Task with gamepad
 # register(
-#     id="gym_hil/RealPandaPickCubeKeyboard-v0",
+#     id="gym_hil/CR5TaskGamePad-v0",
 #     entry_point="gym_hil.wrappers.factory:make_env",
-#     max_episode_steps=100,
+#     max_episode_steps=800,
 #     kwargs={
-#         "env_id": "gym_hil/RealPandaPickCubeBase-v0",
-#         "use_viewer": True,
-#         "gripper_penalty": -0.05,
+#         "env_id": "gym_hil/CR5Task-v0",
+#         "use_gamepad": True,
 #     },
 # )
 
+
+    # max_episode_steps=300,
+register(
+    id="gym_hil/PegInsertionBase-v0",
+    entry_point="gym_hil.envs:PegInsertionEnv",
+    max_episode_steps=300,
+)
+
+register(
+    id="gym_hil/PegInsertionViewer-v0",
+    entry_point=lambda **kwargs: PassiveViewerWrapper(
+        gym.make("gym_hil/PegInsertionBase-v0", **kwargs)
+    ),
+    max_episode_steps=300,
+)
+
+register(
+    id="gym_hil/PegInsertion-v0",
+    entry_point="gym_hil.wrappers.factory:make_env",
+    max_episode_steps=300,
+    kwargs={
+        "env_id": "gym_hil/PegInsertionBase-v0",
+    },
+)
+
+register(
+    id="gym_hil/PegInsertionGamepad-v0",
+    entry_point="gym_hil.wrappers.factory:make_env",
+    max_episode_steps=300,
+    kwargs={
+        "env_id": "gym_hil/PegInsertionBase-v0",
+        "use_viewer": True,
+        # "use_inputs_control": True,
+        "use_gamepad": True,
+    },
+)
+
+register(
+    id="gym_hil/PegInsertionKeyboard-v0",
+    entry_point="gym_hil.wrappers.factory:make_env",
+    max_episode_steps=300,
+    kwargs={
+        "env_id": "gym_hil/PegInsertionBase-v0",
+        "use_viewer": True,
+        "gripper_penalty": -0.05,
+        "use_gamepad": False,
+        # "use_inputs_control": True,
+    },
+)

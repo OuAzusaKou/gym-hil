@@ -1,0 +1,74 @@
+<mujoco model="PegInsertionSide">
+    <include file="panda.xml"/>
+
+    <option timestep=".002" noslip_iterations="5" noslip_tolerance="0"/>
+
+    <statistic center="0.3 0 0.4" extent=".8"/>
+
+    <visual>
+      <headlight diffuse=".4 .4 .4" ambient=".5 .5 .5"/>
+      <global azimuth="160" elevation="-20" offheight="128" offwidth="128"/>
+      <quality offsamples="8"/>
+    </visual>
+
+    <asset>
+      <texture type="skybox" builtin="gradient" rgb1=".3 .5 .7" rgb2="0 0 0" width="32" height="512"/>
+      <texture name="grid" type="2d" builtin="checker" width="512" height="512" rgb1=".1 .2 .3" rgb2=".2 .3 .4"/>
+      <material name="grid" texture="grid" texrepeat="2 2" texuniform="true" reflectance="0"/>
+      <!-- Peg materials -->
+      <material name="peg_head" rgba="0 1 0 1"/>
+      <material name="peg_tail" rgba="0.0 0.0 0 1"/>
+      <material name="box_hole" rgba="1.0 0.824 0.537 1"/>
+      <!-- 孔内部材质 - 可以调整这里的颜色 -->
+      <material name="hole_interior" rgba="1 0 0 1"/>
+    </asset>
+
+    <worldbody>
+      <!--0.5 0.9 1.5-->
+      <!-- <camera name="front" pos="1.3 0.0 0.7" quat="0.5963678 0.3799282 0.3799282 0.5963678" fovy="45"/> -->
+      <camera name="front" pos="0.45 -0.85 0.15" euler="1.5708 0 0" fovy="45"/>
+      <light pos="0 0 3" dir="0 0 -1" diffuse=".3 .3 .3" specular=".3 .3 .3"/>
+      <light pos="0 -.5 .4" mode="targetbodycom" target="peg" diffuse=".3 .3 .3" specular=".3 .3 .3"/>
+      <geom name="floor" size="3 3 0.01" type="plane" material="grid"/>
+
+      <!-- Peg with head and tail, 绕Z轴旋转90度, 高度降低 
+           使用单个collision geom和两个visual geom避免分离 -->
+      <body name="peg" pos="0.5 0 0.03" quat="0.7071068 0 0 0.7071068">
+        <freejoint name="peg_free"/>
+        <!-- 整体碰撞盒 -->
+        <geom name="peg_collision" type="box" size="0.105 0.02 0.02" pos="0 0 0" contype="1" conaffinity="1" solref="0.02 1" rgba="0 0 0 0"/>
+        <!-- Peg head (orange) visual only -->
+        <geom name="peg_head_geom" type="box" size="0.0525 0.02 0.02" pos="0.0525 0 0" material="peg_head" contype="0" conaffinity="0"/>
+        <!-- Peg tail (white) visual only -->
+        <geom name="peg_tail_geom" type="box" size="0.0525 0.02 0.02" pos="-0.0525 0 0" material="peg_tail" contype="0" conaffinity="0"/>
+      
+      
+      </body>
+  
+      <!-- Box with hole, 绕Z轴旋转90度 -->
+      <body name="box_with_hole" pos="0.5 0.35 0.1" quat="0.7071068 0 0 0.7071068">
+        <freejoint name="box_free"/>
+        <!-- Top wall -->
+        <geom name="box_top" type="box" size="0.105 0.041 0.105" pos="0 0.066 0" material="box_hole"/>
+        <!-- Bottom wall -->
+        <geom name="box_bottom" type="box" size="0.105 0.041 0.105" pos="0 -0.066 0" material="box_hole"/>
+        <!-- Front wall -->
+        <geom name="box_front" type="box" size="0.105 0.105 0.041" pos="0 0 0.066" material="box_hole"/>
+        <!-- Back wall -->
+        <geom name="box_back" type="box" size="0.105 0.105 0.041" pos="0 0 -0.066" material="box_hole"/>
+        <!-- 孔内部几何体 - 显示孔内部的颜色 -->
+        <geom name="hole_interior" type="box" size="0.105 0.02 0.02" pos="0 0 0" material="hole_interior" contype="0" conaffinity="0"/>
+      </body>
+
+      <body name="target" pos=".15 0 .5" quat="0 1 0 0" mocap="true">
+        <geom name="target" type="box" size=".03 .03 .03" contype="0" conaffinity="0" rgba=".6 .3 .3 0"/>
+      </body>
+    </worldbody>
+
+    <sensor>
+      <framepos name="peg_pos" objtype="body" objname="peg"/>
+      <framequat name="peg_quat" objtype="body" objname="peg"/>
+      <framepos name="box_pos" objtype="body" objname="box_with_hole"/>
+      <framequat name="box_quat" objtype="body" objname="box_with_hole"/>
+    </sensor>
+</mujoco>
